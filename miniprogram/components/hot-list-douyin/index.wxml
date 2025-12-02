@@ -30,10 +30,7 @@
             wx:if="{{item.iconType}}" 
             class="icon-badge {{utils.getIconClass(item.iconType)}}"
           >{{utils.getIconText(item.iconType)}}</text>
-        </view>
-        
-        <view class="item-footer" wx:if="{{item.hot && item.hot !== '0'}}">
-          <text class="hot-value">热度 {{item.hot}}</text>
+          <text class="hot-value" wx:if="{{item.hot && item.hot !== '0'}}">{{item.hot}}</text>
         </view>
       </view>
     </view>

@@ -103,14 +103,38 @@
           <text wx:else>⚖️ 平局！各打五十大板！</text>
         </view>
 
+        <view class="scores-section" wx:if="{{result.scoreA !== undefined && result.scoreB !== undefined}}">
+            <view class="score-row">
+                <view class="score-item blue">
+                    <text class="score-label">{{formData.nameA || 'A'}}</text>
+                    <text class="score-value">{{result.scoreA}}</text>
+                </view>
+                 <view class="score-vs">VS</view>
+                <view class="score-item red">
+                    <text class="score-label">{{formData.nameB || 'B'}}</text>
+                    <text class="score-value">{{result.scoreB}}</text>
+                </view>
+            </view>
+        </view>
+
         <view class="verdict-section">
           <view class="section-title">⚖️ 法官裁决</view>
-          <text class="verdict-text">{{result.verdict}}</text>
+          <view class="verdict-title" wx:if="{{result.verdictTitle}}">{{result.verdictTitle}}</view>
+          <text class="verdict-text">{{result.analysis || result.verdict}}</text>
+        </view>
+
+        <view class="action-section" wx:if="{{result.actionItems && result.actionItems.length > 0}}">
+             <view class="section-title">📝 执行清单</view>
+             <view class="action-list">
+               <view class="action-item" wx:for="{{result.actionItems}}" wx:key="*this">
+                 <text>{{item}}</text>
+               </view>
+             </view>
         </view>
 
         <view class="comment-section">
           <view class="section-title">😼 猫猫锐评</view>
-          <text class="comment-text">{{result.comment}}</text>
+          <text class="comment-text">{{result.funnyComment || result.comment}}</text>
         </view>
 
         <!-- Stamp -->

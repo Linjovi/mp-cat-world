@@ -48,7 +48,7 @@
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: 0;
 }
 
 .item-title {
@@ -60,6 +60,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+  flex: 1;
 }
 
 .item-title.read {
@@ -84,14 +85,11 @@
 .icon-badge.text-purple { color: #a855f7; }
 .icon-badge.text-gray { color: #9ca3af; }
 
-.item-footer {
-  display: flex;
-  justify-content: space-between;
-}
-
 .hot-value {
   font-size: 24rpx;
   color: #9ca3af;
+  flex-shrink: 0;
+  margin-top: 4rpx;
 }
 
 .loading-state, .error-state {

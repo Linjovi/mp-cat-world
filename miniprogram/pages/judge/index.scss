@@ -295,6 +295,87 @@
   }
 }
 
+/* Scores */
+.scores-section {
+  margin-bottom: 32rpx;
+  padding: 0 16rpx;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.score-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx;
+  border-radius: 16rpx;
+
+  &.blue {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  &.red {
+    background-color: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .score-label {
+    font-size: 24rpx;
+    opacity: 0.8;
+    margin-bottom: 4rpx;
+  }
+
+  .score-value {
+    font-size: 40rpx;
+    font-weight: 900;
+  }
+}
+
+.score-vs {
+  font-size: 24rpx;
+  font-weight: 900;
+  color: #9ca3af;
+}
+
+/* Verdict Title */
+.verdict-title {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 16rpx;
+    text-align: center;
+}
+
+/* Action Items */
+.action-section {
+    margin-bottom: 32rpx;
+    padding-bottom: 32rpx;
+    border-bottom: 2rpx dashed #e5e7eb;
+}
+
+.action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16rpx;
+}
+
+.action-item {
+    background-color: #fff7ed;
+    border: 2rpx solid #fed7aa;
+    border-radius: 16rpx;
+    padding: 16rpx 24rpx;
+    font-size: 26rpx;
+    color: #9a3412;
+    line-height: 1.5;
+}
+
 .reset-btn {
   background-color: #fff;
   color: #6b7280;
