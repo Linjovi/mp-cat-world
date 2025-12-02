@@ -1,0 +1,76 @@
+.container {
+  min-height: 100vh;
+  background-color: #fff;
+  padding-bottom: 80rpx;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  width: 100%;
+  border-bottom: 1rpx solid #f3f4f6;
+}
+
+.nav-bar {
+  padding: 16rpx 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+
+  .nav-avatar {
+    width: 48rpx;
+    height: 48rpx;
+    border-radius: 50%;
+    border: 2rpx solid #fce7f3;
+  }
+
+  .nav-title {
+    font-size: 32rpx;
+    font-weight: 900;
+    color: #1f2937;
+  }
+
+  .nav-subtitle {
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+}
+
+.tabs {
+  display: flex;
+  padding: 0 32rpx 16rpx;
+  gap: 16rpx;
+
+  .tab-btn {
+    flex: 1;
+    padding: 16rpx 0;
+    border-radius: 24rpx;
+    font-size: 28rpx;
+    font-weight: 700;
+    text-align: center;
+    background-color: #f9fafb;
+    color: #9ca3af;
+    transition: all 0.3s;
+
+    &.active {
+      color: #fff;
+      box-shadow: 0 8rpx 20rpx -4rpx rgba(0, 0, 0, 0.1);
+
+      &.weibo {
+        background: linear-gradient(to right, #ec4899, #fb923c);
+        box-shadow: 0 8rpx 20rpx -4rpx rgba(236, 72, 153, 0.3);
+      }
+      &.douyin {
+        background-color: #000;
+        box-shadow: 0 8rpx 20rpx -4rpx rgba(0, 0, 0, 0.2);
+      }
+      &.xhs {
+        background-color: #ef4444;
+        box-shadow: 0 8rpx 20rpx -4rpx rgba(239, 68, 68, 0.3);
+      }
+    }
+  }
+}

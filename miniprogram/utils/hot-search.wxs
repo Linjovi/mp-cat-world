@@ -1,0 +1,32 @@
+var getRankClass = function(rank) {
+  if (rank === '置顶') return 'bg-red';
+  if (rank === 1) return 'bg-red';
+  if (rank === 2) return 'bg-orange';
+  if (rank === 3) return 'bg-yellow';
+  return 'bg-gray';
+}
+
+var getIconClass = function(type) {
+  if (type === 'hot') return 'text-orange';
+  if (type === 'new') return 'text-green';
+  if (type === 'boil' || type === 'first') return 'text-red';
+  if (type === 'rumor') return 'text-blue';
+  if (type === 'exclusive') return 'text-purple';
+  return 'text-gray';
+}
+
+var getIconText = function(type) {
+  if (type === 'hot') return '热';
+  if (type === 'new') return '新';
+  if (type === 'boil') return '沸';
+  if (type === 'first') return '首发';
+  if (type === 'exclusive') return '独家';
+  return type;
+}
+
+module.exports = {
+  getRankClass: getRankClass,
+  getIconClass: getIconClass,
+  getIconText: getIconText
+}
+

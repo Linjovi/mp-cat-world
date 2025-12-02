@@ -1,0 +1,129 @@
+<view class="container">
+  <!-- Header Card -->
+  <view class="header-card">
+    <view class="avatar-wrapper">
+      <image class="judge-avatar" src="https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1000&auto=format&fit=crop" mode="aspectFill"></image>
+      <view class="avatar-label">公正の喵法官</view>
+    </view>
+    <view class="header-text">
+      <view class="app-title">猫猫巡回法庭</view>
+      <view class="app-slogan">"本喵宣判：虽然我可爱，但我超公正！喵~"</view>
+    </view>
+  </view>
+
+  <!-- INPUT STEP -->
+  <block wx:if="{{step === 'input'}}">
+    <view class="form-area animate-fade-in">
+      <view class="form-group">
+        <view class="label">
+          <text class="icon">📜</text> 案发经过 (必填)
+        </view>
+        <textarea 
+          class="input-area" 
+          placeholder="请详细描述矛盾的起因..." 
+          bindinput="onInput" 
+          data-field="cause"
+          value="{{formData.cause}}"
+          maxlength="500"
+        ></textarea>
+      </view>
+
+      <view class="players-grid">
+        <!-- Player A -->
+        <view class="player-card blue">
+          <view class="player-header">
+            <text class="player-label">当事人 A</text>
+            <input 
+              class="player-name-input"
+              placeholder="昵称 (如: 没头脑)" 
+              value="{{formData.nameA}}" 
+              bindinput="onInput" 
+              data-field="nameA" 
+            />
+          </view>
+          <textarea 
+            class="player-reason" 
+            placeholder="A 的理由..." 
+            value="{{formData.sideA}}" 
+            bindinput="onInput" 
+            data-field="sideA"
+            maxlength="200"
+          ></textarea>
+        </view>
+
+        <!-- Player B -->
+        <view class="player-card red">
+          <view class="player-header">
+            <text class="player-label">当事人 B</text>
+            <input 
+              class="player-name-input"
+              placeholder="昵称 (如: 不高兴)" 
+              value="{{formData.nameB}}" 
+              bindinput="onInput" 
+              data-field="nameB" 
+            />
+          </view>
+          <textarea 
+            class="player-reason" 
+            placeholder="B 的理由..." 
+            value="{{formData.sideB}}" 
+            bindinput="onInput" 
+            data-field="sideB"
+            maxlength="200"
+          ></textarea>
+        </view>
+      </view>
+
+      <button class="submit-btn" bindtap="submitForm" hover-class="btn-hover">
+        <text>🐾 升堂！请求裁决！ 🐾</text>
+      </button>
+    </view>
+  </block>
+
+  <!-- THINKING STEP -->
+  <block wx:elif="{{step === 'thinking'}}">
+    <view class="loading-area animate-fade-in">
+      <view class="cat-loader">
+        <view class="cat-head">
+           <view class="cat-ear left"></view>
+           <view class="cat-ear right"></view>
+        </view>
+      </view>
+      <text class="loading-text">猫猫法官正在梳理毛发(思考案情)...</text>
+    </view>
+  </block>
+
+  <!-- RESULT STEP -->
+  <block wx:elif="{{step === 'result'}}">
+    <view class="result-container animate-slide-up">
+      <view class="result-card">
+        <view class="winner-banner {{result.winner === 'A' ? 'blue' : result.winner === 'B' ? 'red' : 'gray'}}">
+          <text wx:if="{{result.winner === 'A'}}">🏆 {{formData.nameA || 'A'}} 胜诉！</text>
+          <text wx:elif="{{result.winner === 'B'}}">🏆 {{formData.nameB || 'B'}} 胜诉！</text>
+          <text wx:else>⚖️ 平局！各打五十大板！</text>
+        </view>
+
+        <view class="verdict-section">
+          <view class="section-title">⚖️ 法官裁决</view>
+          <text class="verdict-text">{{result.verdict}}</text>
+        </view>
+
+        <view class="comment-section">
+          <view class="section-title">😼 猫猫锐评</view>
+          <text class="comment-text">{{result.comment}}</text>
+        </view>
+
+        <!-- Stamp -->
+        <view class="stamp {{result.winner === 'A' ? 'stamp-blue' : result.winner === 'B' ? 'stamp-red' : 'stamp-gray'}}">
+           <text wx:if="{{result.winner === 'A'}}">A胜诉</text>
+           <text wx:elif="{{result.winner === 'B'}}">B胜诉</text>
+           <text wx:else>平局</text>
+        </view>
+      </view>
+
+      <button class="reset-btn" bindtap="resetForm" hover-class="btn-hover">
+        退堂 (再判一个)
+      </button>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,42 @@
+<wxs src="../../utils/hot-search.wxs" module="utils" />
+
+<view class="content-area">
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="spinner weibo"></view>
+    <text>正在搬运大瓜...</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="error-state">
+    <text>{{error}}</text>
+    <button class="retry-btn weibo" bindtap="fetchData">重试一下</button>
+  </view>
+
+  <view wx:else class="list">
+    <view 
+      class="list-item" 
+      wx:for="{{list}}" 
+      wx:key="index"
+      bindtap="onItemClick"
+      data-url="{{item.link}}"
+    >
+      <view class="rank-badge {{utils.getRankClass(item.rank)}}">
+        {{item.rank}}
+      </view>
+      
+      <view class="item-content">
+        <view class="item-header">
+          <text class="item-title {{item.isRead ? 'read' : ''}}">{{item.title}}</text>
+          <text 
+            wx:if="{{item.iconType}}" 
+            class="icon-badge {{utils.getIconClass(item.iconType)}}"
+          >{{utils.getIconText(item.iconType)}}</text>
+        </view>
+        
+        <view class="item-footer" wx:if="{{item.hot && item.hot !== '0'}}">
+          <text class="hot-value">热度 {{item.hot}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

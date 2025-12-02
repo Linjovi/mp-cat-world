@@ -1,0 +1,135 @@
+/* 提取热搜列表公共样式 */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.list-item {
+  background-color: #fff;
+  padding: 32rpx;
+  border-radius: 32rpx;
+  border: 1rpx solid #f3f4f6;
+  box-shadow: 0 2rpx 4rpx rgba(0,0,0,0.05);
+  display: flex;
+  gap: 24rpx;
+  align-items: flex-start;
+}
+
+.list-item:active {
+  transform: scale(0.98);
+  background-color: #fafafa;
+}
+
+.rank-badge {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+
+.rank-badge.bg-red { background-color: #ef4444; color: #fff; }
+.rank-badge.bg-orange { background-color: #f97316; color: #fff; }
+.rank-badge.bg-yellow { background-color: #eab308; color: #fff; }
+.rank-badge.bg-gray { background-color: #f3f4f6; color: #9ca3af; }
+
+.item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.item-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.item-title.read {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.icon-badge {
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+  border: 1rpx solid currentColor;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+
+.icon-badge.text-orange { color: #f97316; }
+.icon-badge.text-green { color: #22c55e; }
+.icon-badge.text-red { color: #dc2626; }
+.icon-badge.text-blue { color: #3b82f6; }
+.icon-badge.text-purple { color: #a855f7; }
+.icon-badge.text-gray { color: #9ca3af; }
+
+.item-footer {
+  display: flex;
+  justify-content: space-between;
+}
+
+.hot-value {
+  font-size: 24rpx;
+  color: #9ca3af;
+}
+
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 96rpx 0;
+  gap: 32rpx;
+  color: #9ca3af;
+  font-size: 28rpx;
+}
+
+.spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 6rpx solid #e5e7eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner.weibo { border-top-color: #ec4899; }
+.spinner.douyin { border-top-color: #000; }
+.spinner.xiaohongshu { border-top-color: #ef4444; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.retry-btn {
+  padding: 16rpx 48rpx;
+  border-radius: 9999rpx;
+  color: #fff;
+  font-weight: 700;
+  font-size: 28rpx;
+}
+
+.retry-btn.weibo { background-color: #ec4899; }
+.retry-btn.douyin { background-color: #000; }
+.retry-btn.xiaohongshu { background-color: #ef4444; }
+

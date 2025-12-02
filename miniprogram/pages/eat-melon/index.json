@@ -1,0 +1,9 @@
+{
+  "usingComponents": {
+    "hot-list-douyin": "../../components/hot-list-douyin/index",
+    "hot-list-weibo": "../../components/hot-list-weibo/index",
+    "hot-list-rednote": "../../components/hot-list-rednote/index"
+  },
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom"
+}

@@ -1,0 +1,58 @@
+<view class="container animate-fade-in">
+  <view class="header">
+    <view class="title">欢迎来到<text class="subtitle"> 喵星球 🪐</text></view>
+  </view>
+
+  <view class="app-list">
+    <!-- Cat Judge App -->
+    <view class="app-card" bindtap="onSelectJudge" hover-class="card-hover">
+      <view class="bg-decoration orange-gradient"></view>
+      
+      <view class="avatar-wrapper">
+        <view class="avatar-blur orange-blur"></view>
+        <image class="avatar" src="https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1000&auto=format&fit=crop" mode="aspectFill"></image>
+      </view>
+
+      <view class="content">
+        <view class="app-name">猫猫法官</view>
+        <view class="app-desc">情侣吵架？让本喵法官来评评理！</view>
+        <view class="tags">
+          <view class="tag orange">热门 🔥</view>
+          <view class="tag blue">情感调解</view>
+        </view>
+      </view>
+
+      <view class="arrow-btn">
+        <view class="arrow-icon"></view>
+      </view>
+    </view>
+
+    <!-- Gossip Cat App -->
+    <view class="app-card" bindtap="onSelectGossip" hover-class="card-hover">
+      <view class="bg-decoration pink-gradient"></view>
+      
+      <view class="avatar-wrapper">
+        <view class="avatar-blur pink-blur"></view>
+        <image class="avatar" src="https://robohash.org/TravellerCatGuide.png?set=set4&bgset=bg1" mode="aspectFill"></image>
+      </view>
+
+      <view class="content">
+        <view class="app-name">吃瓜喵</view>
+        <view class="app-desc">全网热瓜，一网打尽！</view>
+        <view class="tags">
+          <view class="tag pink">实时热搜 🍉</view>
+        </view>
+      </view>
+
+      <view class="arrow-btn pink-hover">
+        <view class="arrow-icon"></view>
+      </view>
+    </view>
+
+    <!-- Placeholder for 'More' -->
+    <view class="placeholder-card">
+      <text class="emoji">🏗️</text>
+      <text class="text">更多应用建设中...</text>
+    </view>
+  </view>
+</view>
