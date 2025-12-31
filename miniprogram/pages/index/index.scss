@@ -1,219 +1,282 @@
+/* Page Container */
 .container {
-  padding: 32rpx;
-  padding-top: 64rpx;
-  padding-bottom: 160rpx;
   min-height: 100vh;
-  background-color: #f9fafb;
+  background-color: #F6F7F9;
+  padding: 0 32rpx 40rpx;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  align-items: stretch;
 }
 
+/* Header */
 .header {
-  padding: 0 16rpx;
-  margin-bottom: 48rpx;
+  position: relative;
+  padding: 60rpx 0 30rpx;
+  /* Increased top padding */
+  margin-bottom: 20rpx;
+  width: 100%;
 
   .title {
     font-size: 48rpx;
-    font-weight: 900;
-    color: #1f2937;
-    margin-bottom: 8rpx;
+    /* Larger title */
+    font-weight: 800;
+    color: #333;
+    line-height: 1.2;
+    position: relative;
+    z-index: 2;
   }
 
   .subtitle {
     font-size: 40rpx;
-    font-weight: 700;
-    color: #f97316; 
+    /* Larger subtitle */
+    font-weight: 800;
+    color: #FF7D00;
+    /* Vibrant Orange */
+    margin-top: 12rpx;
+    position: relative;
+    z-index: 2;
+  }
+
+  .header-illustration {
+    position: absolute;
+    right: -40rpx;
+    /* Shift more to right */
+    top: 10rpx;
+    width: 420rpx;
+    /* Larger illustration */
+    height: 200rpx;
+    /* Adjust aspect ratio if needed, mode is aspectFit */
+    z-index: 1;
   }
 }
 
+/* App List */
 .app-list {
   display: flex;
   flex-direction: column;
   gap: 32rpx;
+  /* More space between cards */
+  z-index: 2;
+  width: 100%;
+  /* Ensure cards are above header illustration bottom edge if overlap */
 }
 
+/* Card Common Styles */
 .app-card {
-  background: #ffffff;
-  padding: 32rpx;
-  border-radius: 48rpx;
-  box-shadow: 0 20rpx 50rpx -24rpx rgba(0, 0, 0, 0.1);
-  border: 2rpx solid #ffffff;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 32rpx;
-  position: relative;
+  padding: 32rpx;
+  border-radius: 40rpx;
+  /* Rounder corners */
+  background-color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.06);
+  /* Deeper shadow */
   overflow: hidden;
-  transition: all 0.2s ease;
+  height: 240rpx;
+  /* Taller cards */
+  box-sizing: border-box;
 
-  &.card-hover {
-    transform: scale(0.98);
+  /* Specific Card Gradients (Subtle) */
+  &.card-meme {
+    background: linear-gradient(135deg, #ffffff 0%, #E9FAF3 100%);
   }
-}
 
-.bg-decoration {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 128rpx;
-  height: 128rpx;
-  border-bottom-left-radius: 100%;
-  opacity: 0.5;
-  pointer-events: none;
-
-  &.orange-gradient {
-    background: linear-gradient(to bottom left, #ffedd5, transparent);
+  &.card-photo {
+    background: linear-gradient(135deg, #ffffff 0%, #EFFBF5 100%);
   }
-  &.pink-gradient {
-    background: linear-gradient(to bottom left, #fce7f3, transparent);
+
+  &.card-mbti {
+    background: linear-gradient(135deg, #ffffff 0%, #F4F0FF 100%);
   }
-}
 
-.avatar-wrapper {
-  position: relative;
-  width: 128rpx;
-  height: 128rpx;
-  flex-shrink: 0;
-}
-
-.avatar-blur {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  filter: blur(16rpx);
-  opacity: 0.5;
-  z-index: 0;
-
-  &.orange-blur {
-    background-color: #ffedd5;
+  &.card-judge {
+    background: linear-gradient(135deg, #ffffff 0%, #FFF6EB 100%);
   }
-  &.pink-blur {
-    background-color: #fce7f3;
+
+  &.card-gossip {
+    background: linear-gradient(135deg, #ffffff 0%, #FFF0F2 100%);
   }
-}
 
-.avatar {
-  width: 128rpx;
-  height: 128rpx;
-  border-radius: 50%;
-  position: relative;
-  z-index: 1;
-  border: 8rpx solid #fff; /* Adjust border thickness */
-  box-shadow: 0 4rpx 6rpx -1rpx rgba(0, 0, 0, 0.1), 0 2rpx 4rpx -1rpx rgba(0, 0, 0, 0.06);
-}
+  &.card-tarot {
+    background: linear-gradient(135deg, #ffffff 0%, #F8F2FF 100%);
+  }
 
-.content {
-  flex: 1;
-  text-align: left;
-  z-index: 10;
-  min-width: 0; 
+  /* Left Icon */
+  .card-icon-container {
+    width: 120rpx;
+    /* Larger Icon */
+    height: 120rpx;
+    border-radius: 50%;
+    margin-right: 28rpx;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+    /* Stronger shadow */
+    z-index: 2;
+
+    .card-icon {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+
+      &.placeholder-icon {
+        background-color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .icon-emoji {
+          font-size: 60rpx;
+        }
+      }
+    }
+  }
+
+  /* Specific Icon Rings (Optional border colors) */
+  &.card-meme .card-icon-container {
+    border: 6rpx solid #D1F2E3;
+  }
+
+  &.card-photo .card-icon-container {
+    border: 6rpx solid #D5F1DE;
+  }
+
+  &.card-mbti .card-icon-container {
+    border: 6rpx solid #E6E0FA;
+  }
+
+  &.card-judge .card-icon-container {
+    border: 6rpx solid #FAE3CC;
+  }
+
+  &.card-gossip .card-icon-container {
+    border: 6rpx solid #FBDee5;
+  }
+
+  &.card-tarot .card-icon-container {
+    border: 6rpx solid #EADAFF;
+  }
+
+
+  /* Content */
+  .card-content {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* Center vertically with the icon */
+    z-index: 2;
+    margin-right: -20rpx;
+    position: relative;
+    /* Ensure it stays above bg */
+  }
+
+  .card-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 
   .app-name {
-    font-weight: 700;
-    color: #1f2937;
     font-size: 36rpx;
-    margin-bottom: 8rpx;
+    font-weight: 800;
+    color: #1A1A1A;
+    margin-bottom: 10rpx;
   }
 
   .app-desc {
-    font-size: 24rpx;
-    color: #6b7280;
+    font-size: 26rpx;
+    color: #777;
     margin-bottom: 16rpx;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 320rpx;
   }
-}
 
-.tags {
-  display: flex;
-  gap: 16rpx;
+  .tags {
+    display: flex;
+    gap: 12rpx;
+  }
 
   .tag {
-    font-size: 20rpx;
+    font-size: 22rpx;
+    padding: 8rpx 20rpx;
+    border-radius: 24rpx;
     font-weight: 700;
-    padding: 4rpx 16rpx;
-    border-radius: 9999rpx;
-    border-width: 2rpx;
-    border-style: solid;
+
+    &.green {
+      background: #E0F5EB;
+      color: #00A854;
+    }
+
+    &.indigo {
+      background: #ECE6FF;
+      color: #5B2AD8;
+    }
+
+    &.purple {
+      background: #F3E6FF;
+      color: #9146FF;
+    }
 
     &.orange {
-      background-color: #fff7ed;
-      color: #ea580c;
-      border-color: #ffedd5;
+      background: #FFE8D6;
+      color: #FF7D00;
     }
+
     &.blue {
-      background-color: #eff6ff;
-      color: #2563eb;
-      border-color: #dbeafe;
+      background: #E6F2FF;
+      color: #007AFF;
     }
+
     &.pink {
-      background-color: #fdf2f8;
-      color: #db2777;
-      border-color: #fce7f3;
+      background: #FFE6EB;
+      color: #FF2D55;
     }
   }
-}
 
-.arrow-btn {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background-color: #f9fafb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #d1d5db;
-  z-index: 10;
-  flex-shrink: 0;
-  
-  // Mimic SVG with CSS border
+  /* Right Arrow */
+  .arrow-btn {
+    width: 56rpx;
+    height: 56rpx;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16rpx;
+  }
+
   .arrow-icon {
-    width: 16rpx;
-    height: 16rpx;
-    border-top: 4rpx solid currentColor;
-    border-right: 4rpx solid currentColor;
-    transform: rotate(45deg);
-    margin-left: -4rpx; // visually center
-  }
-}
-
-.placeholder-card {
-  width: 100%;
-  background-color: rgba(243, 244, 246, 0.5);
-  padding: 32rpx;
-  border-radius: 48rpx;
-  border: 4rpx dashed #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16rpx;
-  color: #9ca3af;
-  box-sizing: border-box;
-
-  .emoji {
-    font-size: 36rpx;
-  }
-  
-  .text {
+    color: #bbb;
     font-size: 28rpx;
-    font-weight: 700;
+    font-weight: bold;
+  }
+
+  /* Illustration */
+  .card-illustration {
+    position: absolute;
+    right: -10rpx;
+    bottom: -10rpx;
+    width: 50%;
+    /* Larger illustration size */
+    height: 60%;
+    z-index: 1;
+    /* Adjust as needed: usually these illustrations sit at the bottom right corner */
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20rpx);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.more-card {
+  text-align: center;
+  padding: 40rpx;
+  color: #aaa;
+  font-size: 26rpx;
+  border: 2rpx dashed #ddd;
+  border-radius: 32rpx;
 }

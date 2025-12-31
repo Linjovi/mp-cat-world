@@ -1,0 +1,61 @@
+<view class="form-section fade-in">
+  <!-- Upload Main -->
+  <view class="upload-card">
+      <view class="upload-box {{image ? 'has-image' : ''}}" bindtap="handleImageUpload">
+        <image wx:if="{{image}}" src="{{image}}" mode="aspectFit" class="uploaded-img"></image>
+        <view wx:else class="upload-placeholder">
+            <view class="icon-circle bounce">
+                <text class="emoji">📸</text>
+            </view>
+            <text class="up-text">上传一只喵</text>
+        </view>
+        <view wx:if="{{image}}" class="change-tag">✨ 点击更换</view>
+      </view>
+  </view>
+
+  <!-- Style Selection -->
+  <view class="card style-card">
+    <view class="card-header">
+        <text class="card-icon">🎨</text>
+        <text class="label">选择画风</text>
+    </view>
+    <view class="style-grid">
+        <view 
+          class="style-btn {{style === 'realistic' ? 'active' : ''}}" 
+          bindtap="setStyle"
+          data-style="realistic"
+        >
+          <image class="style-preview" src="https://pic1.imgdb.cn/item/6954c3728801094e3ab2248f.png" mode="aspectFill" />
+          <view class="style-check" wx:if="{{style === 'realistic'}}">✔</view>
+          <text>写实萌照</text>
+        </view>
+        <view 
+          class="style-btn {{style === 'cartoon' ? 'active' : ''}}"
+          bindtap="setStyle"
+          data-style="cartoon"
+        >
+          <image class="style-preview" src="https://pic1.imgdb.cn/item/6954c5b78801094e3ab224fa.png" mode="aspectFill" />
+          <view class="style-check" wx:if="{{style === 'cartoon'}}">✔</view>
+          <text>超萌卡通</text>
+        </view>
+    </view>
+  </view>
+
+  <!-- Description -->
+  <view class="card desc-card">
+      <view class="card-header">
+        <text class="card-icon">📝</text>
+        <text class="label">魔法咒语（可选）</text>
+      </view>
+      <view class="textarea-wrapper">
+        <textarea 
+        class="desc-input" 
+        placeholder="例如：想要生成的表情类型、动作、场景等..." 
+        bindinput="handleInputDesc"
+        value="{{description}}"
+        maxlength="200"
+        ></textarea>
+        <text class="char-count">{{description.length}}/200</text>
+      </view>
+  </view>
+</view>

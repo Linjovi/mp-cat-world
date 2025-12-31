@@ -1,0 +1,28 @@
+<view class="form-section fade-in">
+    <view class="dual-upload">
+      <!-- Upload Main -->
+      <view class="upload-card">
+        <view class="upload-box small {{image ? 'has-image' : ''}}" bindtap="handleImageUpload" data-target="main">
+            <image wx:if="{{image}}" src="{{image}}" mode="aspectFit" class="uploaded-img"></image>
+            <view wx:else class="upload-placeholder">
+                <view class="icon-circle bounce"><text class="emoji">🐱</text></view>
+                <text class="up-text">主角喵</text>
+            </view>
+        </view>
+      </view>
+      
+      <!-- Upload Ref -->
+      <view class="upload-card">
+        <view class="upload-box small ref {{refImage ? 'has-image' : ''}}" bindtap="handleImageUpload" data-target="ref">
+            <image wx:if="{{refImage}}" src="{{refImage}}" mode="aspectFit" class="uploaded-img"></image>
+            <view wx:else class="upload-placeholder">
+                <view class="icon-circle blue bounce delay"><text class="emoji">🤩</text></view>
+                <text class="up-text">表情参考</text>
+            </view>
+        </view>
+      </view>
+    </view>
+    <view class="notice-box">
+      <text>💡 小贴士：让猫猫模仿右边的表情哦 \n ( •̀ ω •́ )y</text>
+    </view>
+</view>

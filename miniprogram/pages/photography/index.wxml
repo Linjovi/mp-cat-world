@@ -1,0 +1,171 @@
+<view class="container">
+  <!-- Error Toast -->
+  <view wx:if="{{errorMsg}}" class="error-toast">{{errorMsg}}</view>
+
+  <!-- Image Display Area -->
+  <view class="image-display {{resultImageUrl ? 'full' : 'partial'}}">
+    <!-- Result View -->
+    <block wx:if="{{resultImageUrl}}">
+       <image 
+         src="{{showOriginal ? image : resultImageUrl}}" 
+         mode="aspectFit" 
+         class="main-img"
+       ></image>
+       
+       <view class="compare-btn" 
+         bindtouchstart="toggleCompare" 
+         bindtouchend="handleTouchEnd"
+       >
+         {{showOriginal ? "松开看结果" : "按住看原图"}}
+       </view>
+    </block>
+    
+    <!-- Original/Upload View -->
+    <block wx:elif="{{image}}">
+       <image src="{{image}}" mode="aspectFit" class="main-img original"></image>
+       <view class="clear-btn" bindtap="clearImage">✕</view>
+    </block>
+
+    <!-- Empty State -->
+    <block wx:else>
+       <view class="empty-state" bindtap="handleUpload">
+          <view class="camera-icon-circle">📷</view>
+          <text class="empty-title">上传照片</text>
+          <text class="empty-desc">让夸夸喵为你施展魔法</text>
+       </view>
+    </block>
+
+    <!-- Loading Overlay -->
+    <view wx:if="{{loading}}" class="loading-overlay">
+       <view class="loading-content">
+          <view class="cat-bounce">🐱</view>
+          <text class="status-msg">{{statusMessage || "让本喵思考一下..."}}</text>
+          <text class="sub-msg">请耐心等待一小会儿喵~</text>
+          <progress percent="{{progress}}" activeColor="#fbbf24" backgroundColor="#e5e7eb" border-radius="4" stroke-width="6" class="progress-bar" />
+          <text class="progress-text">{{progress}}%</text>
+       </view>
+    </view>
+  </view>
+
+  <!-- Controls Area (When image exists and no result) -->
+  <view wx:if="{{image && !resultImageUrl}}" class="control-panel">
+     <view class="panel-content">
+        <!-- Tab Switch -->
+        <view class="tab-switch">
+           <view 
+             class="tab-btn {{activeTab === 'hot' ? 'active' : ''}}" 
+             bindtap="switchTab" 
+             data-tab="hot"
+           >
+              🔥 热门趋势
+           </view>
+           <view 
+             class="tab-btn {{activeTab === 'function' ? 'active' : ''}}" 
+             bindtap="switchTab" 
+             data-tab="function"
+           >
+              ⚙️ 基础功能
+           </view>
+        </view>
+
+        <!-- Presets Grid -->
+        <view class="presets-area">
+           <block wx:if="{{activeTab === 'hot'}}">
+              <view wx:if="{{loadingHotStyles}}" class="loading-styles">正在分析全网热点...</view>
+              <view wx:else class="styles-grid">
+                 <view 
+                   wx:for="{{hotStyles}}" 
+                   wx:key="title"
+                   class="style-chip {{selectedPreset === item.title ? 'selected' : ''}}"
+                   bindtap="selectPreset"
+                   data-preset="{{item.title}}"
+                 >
+                   {{item.title}}
+                 </view>
+                 
+                 <!-- Source Info -->
+                 <view wx:if="{{selectedPreset && activeTab === 'hot'}}" class="source-info">
+                   <view class="source-title">💡 灵感来源</view>
+                   <view class="tags">
+                      <!-- Find selected style source (simple logic in wxml is hard, rely on visual feedback or mocking simple) -->
+                      <text class="tag">#热门风格</text>
+                   </view>
+                 </view>
+              </view>
+           </block>
+           
+           <block wx:else>
+              <view class="styles-grid">
+                 <view 
+                   wx:for="{{defaultPresets}}" 
+                   wx:key="title"
+                   class="style-chip {{selectedPreset === item.title ? 'selected' : ''}}"
+                   bindtap="selectPreset"
+                   data-preset="{{item.title}}"
+                 >
+                   {{item.title}}
+                 </view>
+              </view>
+
+              <!-- Bg Upload -->
+              <view wx:if="{{selectedPreset === '更换背景'}}" class="bg-upload-section">
+                  <text class="section-label">上传背景图</text>
+                  <view wx:if="{{backgroundImage}}" class="bg-preview">
+                     <image src="{{backgroundImage}}" mode="aspectFill"></image>
+                     <view class="remove-bg-btn" bindtap="clearBgImage">✕</view>
+                  </view>
+                  <view wx:else class="upload-bg-box" bindtap="handleBgUpload">
+                     <text>+ 点击上传背景</text>
+                  </view>
+              </view>
+           </block>
+        </view>
+
+        <!-- Prompt Input -->
+        <view class="input-section">
+            <view class="input-header">
+               <text class="input-label">补充细节</text>
+               <text class="char-count {{prompt.length > 180 ? 'warn' : ''}}">{{prompt.length}}/200</text>
+            </view>
+            <textarea 
+               class="prompt-input" 
+               placeholder="想要画面更亮一点？或者是某种特殊的氛围？在这里告诉我..." 
+               bindinput="handleInputPrompt"
+               value="{{prompt}}"
+               maxlength="200"
+            ></textarea>
+        </view>
+     </view>
+
+     <!-- Bottom Generate Button -->
+     <view class="bottom-bar">
+        <button 
+           class="generate-btn" 
+           disabled="{{(!prompt && !selectedPreset) || loading}}"
+           bindtap="handleGenerate"
+        >
+           ✨ {{!prompt && !selectedPreset ? "请选择效果" : "开始生成"}}
+        </button>
+     </view>
+  </view>
+  
+  <!-- Result Actions (When result exists) -->
+  <view wx:if="{{resultImageUrl}}" class="result-actions-panel">
+     <view class="result-header">
+        <text class="result-title">🎉 美照生成完毕！</text>
+        <text class="result-tip">长按图片保存</text>
+     </view>
+     <view class="action-buttons">
+        <button class="reset-btn" bindtap="handleReset">↺ 再修一张</button>
+        <button class="download-btn" bindtap="handleDownload">💾 保存美照</button>
+     </view>
+  </view>
+  
+  <!-- Initial Placeholder Bottom Panel -->
+  <view wx:if="{{!image}}" class="placeholder-panel">
+     <view class="placeholder-content">
+        <text class="sparkle-icon">✨</text>
+        <text>上传照片后即可开始修图</text>
+     </view>
+  </view>
+</view>

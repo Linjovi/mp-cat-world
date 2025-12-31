@@ -1,58 +1,35 @@
-<view class="container animate-fade-in">
+<view class="container" style="padding-top: {{paddingTop}}px">
   <view class="header">
-    <view class="title">欢迎来到<text class="subtitle"> 喵星球 🪐</text></view>
+    <view class="title">欢迎来到</view>
+    <view class="subtitle">呼噜呼噜事务所</view>
+    <image class="header-illustration" src="https://pic1.imgdb.cn/item/6938113900233646958db1ac.png" mode="aspectFit" />
   </view>
 
   <view class="app-list">
-    <!-- Cat Judge App -->
-    <view class="app-card" bindtap="onSelectJudge" hover-class="card-hover">
-      <view class="bg-decoration orange-gradient"></view>
-      
-      <view class="avatar-wrapper">
-        <view class="avatar-blur orange-blur"></view>
-        <image class="avatar" src="https://images.unsplash.com/photo-1592194996308-7b43878e84a6?q=80&w=1000&auto=format&fit=crop" mode="aspectFill"></image>
+    <block wx:for="{{appList}}" wx:key="id">
+      <view class="app-card {{item.className}}" bindtap="onAppSelect" data-url="{{item.url}}">
+         <view class="card-icon-container">
+            <image class="card-icon" src="{{item.icon}}" mode="aspectFill" />
+         </view>
+         <view class="card-content">
+            <view class="card-text">
+               <view class="app-name">{{item.name}}</view>
+               <view class="app-desc">{{item.desc}}</view>
+               <view class="tags">
+                  <view wx:for="{{item.tags}}" wx:for-item="tag" wx:key="text" class="tag {{tag.color}}">{{tag.text}}</view>
+               </view>
+            </view>
+            <view class="arrow-btn">
+              <text class="arrow-icon">></text>
+            </view>
+         </view>
+         <image class="card-illustration" src="{{item.illustration}}" mode="aspectFill" />
       </view>
+    </block>
 
-      <view class="content">
-        <view class="app-name">猫猫法官</view>
-        <view class="app-desc">情侣吵架？让本喵法官来评评理！</view>
-        <view class="tags">
-          <view class="tag orange">热门 🔥</view>
-          <view class="tag blue">情感调解</view>
-        </view>
-      </view>
-
-      <view class="arrow-btn">
-        <view class="arrow-icon"></view>
-      </view>
-    </view>
-
-    <!-- Gossip Cat App -->
-    <view class="app-card" bindtap="onSelectGossip" hover-class="card-hover">
-      <view class="bg-decoration pink-gradient"></view>
-      
-      <view class="avatar-wrapper">
-        <view class="avatar-blur pink-blur"></view>
-        <image class="avatar" src="https://robohash.org/TravellerCatGuide.png?set=set4&bgset=bg1" mode="aspectFill"></image>
-      </view>
-
-      <view class="content">
-        <view class="app-name">吃瓜喵</view>
-        <view class="app-desc">全网热瓜，一网打尽！</view>
-        <view class="tags">
-          <view class="tag pink">实时热搜 🍉</view>
-        </view>
-      </view>
-
-      <view class="arrow-btn pink-hover">
-        <view class="arrow-icon"></view>
-      </view>
-    </view>
-
-    <!-- Placeholder for 'More' -->
-    <view class="placeholder-card">
-      <text class="emoji">🏗️</text>
-      <text class="text">更多应用建设中...</text>
+    <!-- More Placeholder -->
+    <view class="more-card">
+       <text>🏗️ 更多应用建设中...</text>
     </view>
   </view>
 </view>

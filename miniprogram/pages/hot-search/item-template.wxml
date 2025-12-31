@@ -1,0 +1,24 @@
+<!-- item-template.wxml -->
+<view class="item-inner">
+  <view class="rank-badge {{item.rank === 1 ? 'rank-1' : item.rank === 2 ? 'rank-2' : item.rank === 3 ? 'rank-3' : 'rank-other'}}">
+    {{item.rank}}
+  </view>
+  
+  <view class="item-info">
+    <view class="item-title-row">
+      <text class="item-title">{{item.title}}</text>
+      <text wx:if="{{item.iconType}}" class="icon-badge {{item.iconType}}">
+        {{item.iconType === 'hot' ? '热' : item.iconType === 'new' ? '新' : item.iconType === 'boil' ? '沸' : item.iconType}}
+      </text>
+    </view>
+    
+    <view wx:if="{{sourceItem.key === 'maoyan'}}" class="sub-info">
+        <text class="platform-tag">{{item.platform}}</text>
+        <text>{{item.releaseInfo}}</text>
+    </view>
+  </view>
+  
+  <view wx:if="{{item.hot}}" class="hot-value">
+    {{item.hot}}
+  </view>
+</view>

@@ -1,0 +1,233 @@
+/* Page Layout */
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+}
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Header Background */
+.header-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 280rpx;
+  background: linear-gradient(to bottom, #ffedd5, #fff1f2, transparent);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Header Content */
+.header {
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0);
+  backdrop-filter: blur(4px);
+  padding-top: 20rpx;
+  flex-shrink: 0;
+}
+
+.title-bar {
+  padding: 0 40rpx;
+  margin-bottom: 20rpx;
+  /* display: flex; */
+  /* align-items: baseline; */
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: 900;
+  color: #db2777; /* pink-600 */
+  letter-spacing: 2rpx;
+  margin-right: 20rpx;
+}
+
+.subtitle {
+  font-size: 24rpx;
+  color: #ec4899; /* pink-500 */
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+/* Tabs */
+.tabs-container {
+  padding: 0 30rpx 20rpx;
+}
+
+.tabs {
+  display: flex;
+  background-color: rgba(243, 244, 246, 0.8);
+  border-radius: 20rpx;
+  padding: 8rpx;
+  box-shadow: inset 0 2rpx 4rpx rgba(0,0,0,0.05);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20rpx 0;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #6b7280;
+  transition: all 0.3s;
+}
+
+.tab-item.active {
+  background-color: #fff;
+  color: #000;
+  box-shadow: 0 1rpx 2rpx rgba(0,0,0,0.05);
+  transform: scale(1.02);
+}
+
+.tab-icon {
+  margin-right: 10rpx;
+  font-size: 30rpx;
+}
+
+.tab-name.text-red-500 { color: #ef4444; }
+.tab-name.text-pink-600 { color: #db2777; }
+.tab-name.text-cyan-600 { color: #0891b2; }
+
+/* Swiper */
+.content-swiper {
+  flex: 1;
+  height: 0; /* Important for flex child swiper */
+}
+
+.data-list {
+  height: 100%;
+}
+
+.list-content {
+  padding: 20rpx 30rpx;
+  padding-bottom: 100rpx;
+}
+
+/* List Item */
+.list-item {
+  background-color: #fff;
+  padding: 24rpx 30rpx;
+  border-radius: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx -2rpx rgba(0,0,0,0.05);
+  border: 1rpx solid #f3f4f6;
+  position: relative;
+}
+
+.item-inner {
+  display: flex;
+  align-items: center;
+}
+
+.rank-badge {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  font-weight: 900;
+  flex-shrink: 0;
+  margin-right: 24rpx;
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.rank-1 { background-color: #ef4444; color: #fff; }
+.rank-2 { background-color: #f97316; color: #fff; }
+.rank-3 { background-color: #eab308; color: #fff; }
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.item-title {
+  font-size: 30rpx;
+  color: #1f2937;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 12rpx;
+}
+
+.icon-badge {
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 2rpx 6rpx;
+  border-radius: 6rpx;
+  border: 1px solid currentColor;
+  height: 28rpx;
+  line-height: 24rpx;
+  flex-shrink: 0;
+}
+
+.icon-badge.hot { color: #f97316; }
+.icon-badge.new { color: #22c55e; }
+.icon-badge.boil { color: #dc2626; }
+
+.hot-value {
+  font-size: 24rpx;
+  color: #9ca3af;
+  font-family: monospace;
+  margin-left: 20rpx;
+}
+
+.sub-info {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+
+.platform-tag {
+  background-color: #f9fafb;
+  padding: 0 8rpx;
+  border-radius: 4rpx;
+  color: #6b7280;
+}
+
+/* Loading/Error */
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.loading-spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 6rpx solid #e5e7eb;
+  border-radius: 50%;
+  margin-bottom: 20rpx;
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner.douyin { border-top-color: #000; }
+.loading-spinner.xiaohongshu { border-top-color: #ef4444; }
+.loading-spinner.weibo { border-top-color: #db2777; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,32 @@
+<view class="form-section fade-in">
+    <!-- Upload Main -->
+  <view class="upload-card">
+    <view class="upload-box {{image ? 'has-image' : ''}}" bindtap="handleImageUpload">
+        <image wx:if="{{image}}" src="{{image}}" mode="aspectFit" class="uploaded-img"></image>
+        <view wx:else class="upload-placeholder">
+        <view class="icon-circle bounce"><text class="emoji">🎬</text></view>
+        <text class="up-text">上传主角喵</text>
+        </view>
+    </view>
+  </view>
+
+  <view class="card desc-card">
+    <view class="card-header">
+        <text class="card-icon">🎭</text>
+        <text class="label">动作指令</text>
+    </view>
+    <view class="textarea-wrapper">
+        <textarea 
+        class="desc-input" 
+        placeholder="例如：吐一下舌头、眨眼睛、歪头杀..." 
+        bindinput="handleInputGif"
+        value="{{gifPrompt}}"
+        maxlength="200"
+        ></textarea>
+    </view>
+  </view>
+  
+  <view class="notice-bubble">
+    ✨ 点击生成后，请耐心等待魔法生效喵~ ✨
+  </view>
+</view>

@@ -1,0 +1,125 @@
+<view class="container">
+  <!-- Background -->
+  <view class="bg-stars"></view>
+
+  <!-- Header -->
+  <view class="header">
+    <text class="header-text">喵呜~ 洞悉过去 · 把握当下 · 预见未来</text>
+  </view>
+
+  <view class="main-content">
+    
+    <!-- Intro Stage -->
+    <view wx:if="{{stage === 'intro'}}" class="stage intro">
+      <image class="intro-avatar" src="https://pic1.imgdb.cn/item/693811d900233646958db503.png" mode="widthFix"></image>
+      <view class="intro-card">
+        <view class="intro-title">欢迎来到塔罗秘境</view>
+        <view class="intro-desc">我是这里的守护者，让我用塔罗牌为你指引方向喵~</view>
+        <button class="start-btn" bindtap="startIntro">开始占卜</button>
+      </view>
+    </view>
+
+    <!-- Input Stage -->
+    <view wx:if="{{stage === 'input'}}" class="stage input">
+      <view class="question-card">
+        <text class="label">心中默念你的问题</text>
+        <textarea 
+          class="question-input" 
+          placeholder="例如：我最近的运势如何？" 
+          value="{{question}}"
+          bindinput="onInputQuestion"
+        ></textarea>
+        <button class="confirm-btn" bindtap="confirmQuestion" disabled="{{!question}}">确认问题</button>
+      </view>
+    </view>
+
+    <!-- Spread Selection Stage -->
+    <view wx:if="{{stage === 'spread'}}" class="stage spread">
+      <view class="spread-title">选择牌阵</view>
+      <view class="spread-list">
+        <block wx:for="{{spreadConfigs}}" wx:key="id">
+          <view class="spread-item" bindtap="selectSpread" data-id="{{item.id}}">
+            <view class="spread-name">{{item.name}}</view>
+            <view class="spread-desc">{{item.description}}</view>
+            <view class="spread-cards">需抽取 {{item.cards}} 张牌</view>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- Shuffle Stage -->
+    <view wx:if="{{stage === 'shuffle'}}" class="stage shuffle">
+      <view class="shuffle-anim">
+        <view class="card back"></view>
+        <view class="card back"></view>
+        <view class="card back"></view>
+      </view>
+      <text class="loading-text">洗牌中...</text>
+    </view>
+
+    <!-- Cut Stage -->
+    <view wx:if="{{stage === 'cut'}}" class="stage cut">
+      <view class="cut-deck" bindtap="cutDeck">
+        <image src="{{cardBackUrl}}" class="deck-img"></image>
+        <text class="cut-hint">点击切牌</text>
+      </view>
+    </view>
+
+    <!-- Draw Stage -->
+    <view wx:if="{{stage === 'draw'}}" class="stage draw">
+      <view class="draw-header">
+        请抽取 {{selectedSpread.cards}} 张牌 ({{drawnCards.length}}/{{selectedSpread.cards}})
+      </view>
+      <view class="deck-spread">
+        <!-- Simplified visual representation of deck -->
+        <view class="card-stack" bindtap="drawCard">
+           <image src="{{cardBackUrl}}" class="card-back-lg"></image>
+           <text class="draw-hint">点击抽牌</text>
+        </view>
+      </view>
+      <view class="drawn-preview">
+        <block wx:for="{{drawnCards}}" wx:key="uniqueId">
+           <image src="{{cardBackUrl}}" class="mini-card"></image>
+        </block>
+      </view>
+    </view>
+
+    <!-- Reading / Result Stage -->
+    <view wx:if="{{stage === 'reading' || stage === 'result'}}" class="stage reading">
+      <view class="cards-layout">
+        <block wx:for="{{drawnCards}}" wx:key="uniqueId">
+          <view class="card-slot" bindtap="revealCard" data-index="{{index}}">
+            <view class="card-inner {{item.isRevealed ? 'flipped' : ''}}">
+              <view class="card-face front">
+                <image src="{{item.imageUrl}}" class="card-img {{item.isReversed ? 'reversed' : ''}}" mode="widthFix"></image>
+                <view class="card-label">{{item.name}} {{item.isReversed ? '(逆位)' : '(正位)'}}</view>
+              </view>
+              <view class="card-face back">
+                <image src="{{cardBackUrl}}" class="card-back-img"></image>
+                <view class="position-label">{{item.position}}</view>
+              </view>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <block wx:if="{{stage === 'result' && readingResult}}">
+        <view class="result-card">
+          <view class="result-title">🔮 解读结果</view>
+          <view class="result-text">{{readingResult.analysis}}</view>
+          <view class="advice-title">💡 建议</view>
+          <view class="result-text">{{readingResult.advice}}</view>
+          <button class="reset-btn" bindtap="reset">重新占卜</button>
+        </view>
+      </block>
+       <block wx:elif="{{loading}}">
+         <view class="loading-reading">正在解读...</view>
+       </block>
+    </view>
+
+  </view>
+
+  <view class="back-btn" bindtap="onBack">
+    <text>⬅ 返回</text>
+  </view>
+</view>

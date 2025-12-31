@@ -1,0 +1,114 @@
+<view class="page-bg-decoration">
+  <view class="blob blob-1"></view>
+  <view class="blob blob-2"></view>
+</view>
+
+<view class="container" style="padding-top: {{statusBarHeight + navBarHeight}}px">
+  <!-- Custom Navigation Bar -->
+  <view class="custom-nav" style="padding-top: {{statusBarHeight}}px; height: {{navBarHeight}}px">
+    <view class="nav-title" style="line-height: {{navBarHeight}}px">✨ 表情包制作喵 ✨</view>
+  </view>
+
+  <!-- Tabs with new container for scroll/layout -->
+  <view class="tabs-container">
+    <view class="tabs">
+        <view 
+        wx:for="{{tabs}}" 
+        wx:key="id" 
+        class="tab-item {{activeTab === item.id ? 'active' : ''}}"
+        bindtap="switchTab"
+        data-id="{{item.id}}"
+        >
+        {{item.name}}
+        <view class="active-dot" wx:if="{{activeTab === item.id}}"></view>
+        </view>
+    </view>
+  </view>
+
+  <!-- Content -->
+  <view class="content-area">
+    
+    <!-- Type 1: Nine Grid -->
+    <nine-grid 
+      wx:if="{{activeTab === 1}}" 
+      image="{{image}}" 
+      style="{{style}}" 
+      description="{{description}}" 
+      bind:updateImage="onUpdateImage" 
+      bind:updateStyle="onUpdateStyle" 
+      bind:updateDescription="onUpdateDesc" 
+    />
+
+    <!-- Type 2: Reference/Mimicry -->
+    <mimicry 
+      wx:if="{{activeTab === 2}}" 
+      image="{{image}}" 
+      refImage="{{refImage}}" 
+      bind:updateImage="onUpdateImage" 
+    />
+
+    <!-- Type 3: GIF -->
+    <gif-maker 
+      wx:if="{{activeTab === 3}}" 
+      image="{{image}}" 
+      gifPrompt="{{gifPrompt}}" 
+      bind:updateImage="onUpdateImage" 
+      bind:updateGifPrompt="onUpdateGifPrompt" 
+    />
+
+    <!-- Error Msg -->
+    <view wx:if="{{error}}" class="error-msg shake">😿 {{error}}</view>
+
+    <!-- Progress -->
+    <view wx:if="{{loading}}" class="progress-wrap fade-in">
+        <view class="loading-cat">
+            <view class="cat-head">🐱</view>
+        </view>
+       <view class="progress-info">
+         <text>施展魔法中...</text>
+         <text>{{progress}}%</text>
+       </view>
+       <view class="progress-bar-bg">
+         <view class="progress-bar-fill" style="width: {{progress}}%"></view>
+       </view>
+    </view>
+
+    <!-- Generate Button -->
+    <button 
+      class="generate-btn {{loading ? 'loading' : ''}} {{activeTab===3 ? 'purple-btn' : ''}}" 
+      bindtap="handleGenerate"
+      disabled="{{loading}}"
+    >
+       <text class="btn-text">{{loading ? '✨ 制作中...' : activeTab === 3 ? '✨ 生成动图' : '✨ 立即生成'}}</text>
+    </button>
+
+    <!-- Result -->
+    <view wx:if="{{generatedImage}}" class="result-area fade-up">
+       <view class="result-card">
+          <view class="result-header">🎉 生成成功啦！</view>
+          <view class="result-display">
+             <image src="{{generatedImage}}" mode="widthFix" class="result-img"></image>
+          </view>
+       </view>
+       
+       <view wx:if="{{activeTab === 3}}" class="card fps-card">
+          <view class="card-header">
+            <text class="card-icon">⚡</text>
+            <text class="label">动画速度: {{fps}} FPS</text>
+          </view>
+          <slider min="1" max="20" value="{{fps}}" activeColor="#9333ea" block-size="20" bindchange="onFpsChange" />
+       </view>
+
+       <view class="result-actions">
+          <button class="action-btn secondary" bindtap="reset">
+             <text>↺ 再来一张</text>
+          </button>
+          <button class="action-btn primary" bindtap="saveImage">
+             <text>💾 保存美照</text>
+          </button>
+       </view>
+    </view>
+    
+    <view style="height: 120rpx;"></view>
+  </view>
+</view>

@@ -1,0 +1,7 @@
+{
+    "usingComponents": {
+        "nine-grid": "/components/meme/nine-grid/index",
+        "mimicry": "/components/meme/mimicry/index",
+        "gif-maker": "/components/meme/gif-maker/index"
+    }
+}

@@ -1,0 +1,210 @@
+<view class="container">
+  <!-- Header -->
+  <view class="header" style="background-color: {{mbtiColor}}">
+    <view class="nav-btn" bindtap="handleBack">
+      <text class="icon">❮</text>
+    </view>
+    <text class="header-title">MeowBTI {{targetMBTI}}</text>
+    <view class="nav-btn" bindtap="handleReset">
+      <text class="icon">↺</text>
+    </view>
+  </view>
+
+  <!-- Mian Content -->
+  <view class="main-content">
+    <!-- Profile Card -->
+    <view class="profile-card">
+      <view class="profile-bg-icon">🧠</view>
+      
+      <view class="profile-avatar-container">
+        <image src="{{mbtiAvatar}}" mode="aspectFill" class="profile-avatar"></image>
+      </view>
+      
+      <view class="profile-info">
+        <view class="profile-header">
+           <text class="mbti-title" style="color: {{mbtiColor}}">{{targetMBTI}}</text>
+        </view>
+        <view class="profile-reletaion">
+           <text class="relation-tag">{{relationshipLabel}}</text>
+           <view class="dot"></view>
+           <text class="relation-level">LV.{{relationshipIndex}}</text>
+        </view>
+        <view class="settings-btn" style="background-color: {{mbtiColor}}" bindtap="toggleSettings">
+           <text>⚙️ 修改设定</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Step 1: TA's Message -->
+    <view class="card-box">
+      <view class="card-header">
+        <view class="icon-box" style="background-color: {{mbtiColor}}">✉️</view>
+        <text class="card-title">Step 1: TA 的消息</text>
+      </view>
+      
+      <textarea 
+        class="input-area" 
+        placeholder="TA 说了什么喵？" 
+        value="{{receivedMessage}}"
+        bindinput="handleInputReceived"
+        maxlength="500"
+      ></textarea>
+      
+      <view class="action-row">
+        <view 
+          class="action-btn {{isAnalyzing || !receivedMessage ? 'disabled' : ''}}" 
+          style="background-color: {{mbtiColor}}"
+          bindtap="handleParse"
+        >
+          <text wx:if="{{isAnalyzing}}">分析中...</text>
+          <text wx:else>🧠 深度解析</text>
+        </view>
+      </view>
+
+      <view wx:if="{{analysis}}" class="analysis-box">
+         <view class="analysis-header">
+           <text style="color: {{mbtiColor}}">🧠</text>
+           <text class="analysis-label">潜台词透视</text>
+         </view>
+         <text class="analysis-content">{{analysis.mbtiLogic}}</text>
+      </view>
+    </view>
+
+    <!-- Connector -->
+    <view class="connector">
+      <text style="color: {{mbtiColor}}">⬇</text>
+    </view>
+
+    <!-- Step 2: My Intent -->
+    <view class="card-box {{!analysis ? 'opacity-80' : ''}}">
+      <view class="card-header">
+        <view class="icon-box" style="background-color: {{mbtiColor}}">✨</view>
+        <text class="card-title">Step 2: 回复意向</text>
+      </view>
+      
+      <textarea 
+        class="input-area" 
+        placeholder="你想表达什么喵？" 
+        value="{{myIntent}}"
+        bindinput="handleInputIntent"
+        maxlength="500"
+      ></textarea>
+      
+      <view class="action-row">
+        <view 
+          class="action-btn {{isGeneratingSuggestions || !myIntent ? 'disabled' : ''}}" 
+          style="background-color: {{mbtiColor}}"
+          bindtap="handleGenerateReply"
+        >
+          <text wx:if="{{isGeneratingSuggestions}}">生成中...</text>
+          <text wx:else>✨ 生成神回复</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Suggestions -->
+    <view wx:if="{{suggestions.length > 0}}" class="suggestions-container">
+      <view class="divider">
+        <view class="line"></view>
+        <text class="divider-text">Strategies Generated</text>
+        <view class="line"></view>
+      </view>
+      
+      <scroll-view scroll-x class="suggestions-scroll" enable-flex>
+        <block wx:for="{{suggestions}}" wx:key="index">
+          <view class="suggestion-card" style="border-top-color: {{mbtiColor}}">
+            <view class="suggestion-section">
+              <text class="section-label">直觉反应</text>
+              <text class="reaction-old">"{{item.reactionToOriginal}}"</text>
+            </view>
+            
+            <view class="suggestion-section">
+              <text class="section-label" style="color: {{mbtiColor}}">降维打击方案</text>
+              <view class="optimized-reply" style="background-color: {{mbtiColor}}1a; color: {{mbtiColor}}">
+                 {{item.optimizedReply}}
+              </view>
+              <text class="reaction-new">✓ {{item.reactionToOptimized}}</text>
+            </view>
+            
+            <view class="analysis-brief">
+               <text class="brief-label">底层博弈逻辑</text>
+               <text>{{item.briefAnalysis}}</text>
+            </view>
+            
+            <view class="suggestion-footer">
+               <view class="score-box">
+                 <text class="score-label">好感度变化</text>
+                 <view>
+                   <text class="score-num">{{item.scoreChange.from}} → </text>
+                   <text class="score-num" style="color: {{mbtiColor}}">{{item.scoreChange.to}}</text>
+                   <text class="score-diff">+{{item.scoreChange.diff}}</text>
+                 </view>
+               </view>
+               <view 
+                 class="copy-btn" 
+                 style="background-color: {{mbtiColor}}"
+                 bindtap="copyContent"
+                 data-content="{{item.optimizedReply}}"
+               >
+                 复制
+               </view>
+            </view>
+          </view>
+        </block>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- Settings Modal -->
+  <view wx:if="{{showSettings}}" class="modal-overlay" bindtap="toggleSettings">
+     <view class="modal-content" catchtap="true">
+        <view class="modal-header">
+           <text class="modal-title">人格设定</text>
+           <view class="close-btn" bindtap="toggleSettings">✕</view>
+        </view>
+        
+        <view class="setting-section">
+           <text class="setting-label">目标人格 (MBTI)</text>
+           <view class="mbti-grid">
+              <view 
+                wx:for="{{mbtiList}}" 
+                wx:key="*this"
+                class="mbti-item {{targetMBTI === item ? 'active' : ''}}"
+                style="{{targetMBTI === item ? 'background-color: ' + mbtiColor + '; border-color: ' + mbtiColor : ''}}"
+                bindtap="selectMBTI"
+                data-mbti="{{item}}"
+              >
+                {{item}}
+              </view>
+           </view>
+        </view>
+        
+        <view class="setting-section">
+           <view class="slider-header">
+              <text class="setting-label">亲密度指数 ({{relationshipIndex}})</text>
+              <text class="relation-badge" style="background-color: {{mbtiColor}}">{{relationshipLabel}}</text>
+           </view>
+           <slider 
+             min="0" max="100" 
+             value="{{relationshipIndex}}" 
+             activeColor="{{mbtiColor}}"
+             bindchange="onRelationshipChange"
+           />
+           <view class="slider-labels">
+              <text>Stranger</text>
+              <text>Friend</text>
+              <text>Lover</text>
+           </view>
+        </view>
+        
+        <view class="modal-footer">
+           <button class="confirm-btn" style="background-color: {{mbtiColor}}" bindtap="closeSettings">完成修改</button>
+        </view>
+     </view>
+  </view>
+
+  <!-- Toast -->
+  <view wx:if="{{showToast}}" class="toast-box">
+    {{toastMessage}}
+  </view>
+</view>

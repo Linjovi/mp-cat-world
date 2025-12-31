@@ -2,11 +2,17 @@
   "pages": [
     "pages/index/index",
     "pages/judge/index",
-    "pages/eat-melon/index"
+    "pages/tarot/index",
+    "pages/answer/index",
+    "pages/hot-search/index",
+    "pages/mbti/index",
+    "pages/meme/index",
+    "pages/photography/index"
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarBackgroundColor": "#fff"
+    "navigationBarBackgroundColor": "#fff",
+    "navigationStyle": "custom"
   },
   "style": "v2",
   "rendererOptions": {
