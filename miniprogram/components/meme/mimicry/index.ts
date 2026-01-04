@@ -10,6 +10,10 @@ Component({
         refImage: {
             type: String,
             value: ''
+        },
+        generatedImage: {
+            type: String,
+            value: ''
         }
     },
     methods: {
@@ -27,6 +31,20 @@ Component({
                         target: target
                     });
                 }
+            });
+        },
+
+        reset() {
+            this.triggerEvent('reset');
+        },
+
+        saveImage() {
+            if (!this.properties.generatedImage) return;
+
+            wx.saveImageToPhotosAlbum({
+                filePath: this.properties.generatedImage,
+                success: () => wx.showToast({ title: '已保存', icon: 'success' }),
+                fail: () => wx.showToast({ title: '保存失败', icon: 'none' })
             });
         }
     }

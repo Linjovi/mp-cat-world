@@ -58,4 +58,23 @@
         <text class="char-count">{{description.length}}/200</text>
       </view>
   </view>
+  <!-- Result -->
+  <view wx:if="{{generatedImage}}" class="result-area fade-up" style="margin-top: 40rpx;">
+     <view class="result-card">
+        <view class="result-header">🎉 生成成功啦！</view>
+        
+        <view class="result-display">
+           <image src="{{generatedImage}}" mode="widthFix" class="result-img"></image>
+        </view>
+
+        <view class="result-actions">
+           <button class="action-btn secondary" bindtap="reset">
+              <text>↺ 再来一张</text>
+           </button>
+           <button class="action-btn primary" bindtap="saveImage">
+              <text>💾 保存美照</text>
+           </button>
+        </view>
+     </view>
+  </view>
 </view>

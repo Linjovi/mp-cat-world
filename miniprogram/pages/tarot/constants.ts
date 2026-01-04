@@ -51,3 +51,4 @@ export const getDeck = () => {
     isReversed: Math.random() < 0.2, 
   }));
 };
+

@@ -1,8 +1,3 @@
-<view class="page-bg-decoration">
-  <view class="blob blob-1"></view>
-  <view class="blob blob-2"></view>
-</view>
-
 <view class="container" style="padding-top: {{statusBarHeight + navBarHeight}}px">
   <!-- Custom Navigation Bar -->
   <view class="custom-nav" style="padding-top: {{statusBarHeight}}px; height: {{navBarHeight}}px">
@@ -34,9 +29,11 @@
       image="{{image}}" 
       style="{{style}}" 
       description="{{description}}" 
+      generatedImage="{{generatedImage}}"
       bind:updateImage="onUpdateImage" 
       bind:updateStyle="onUpdateStyle" 
       bind:updateDescription="onUpdateDesc" 
+      bind:reset="onReset"
     />
 
     <!-- Type 2: Reference/Mimicry -->
@@ -44,16 +41,24 @@
       wx:if="{{activeTab === 2}}" 
       image="{{image}}" 
       refImage="{{refImage}}" 
+      generatedImage="{{generatedImage}}"
       bind:updateImage="onUpdateImage" 
+      bind:reset="onReset"
     />
 
     <!-- Type 3: GIF -->
     <gif-maker 
+      id="gifMaker"
       wx:if="{{activeTab === 3}}" 
       image="{{image}}" 
       gifPrompt="{{gifPrompt}}" 
+      generatedImage="{{generatedImage}}"
+      fps="{{fps}}"
       bind:updateImage="onUpdateImage" 
       bind:updateGifPrompt="onUpdateGifPrompt" 
+      bind:fpsChange="onFpsChange"
+      bind:reset="onReset"
+      bind:updateGeneratedImage="onUpdateGeneratedImage"
     />
 
     <!-- Error Msg -->
@@ -81,34 +86,5 @@
     >
        <text class="btn-text">{{loading ? '✨ 制作中...' : activeTab === 3 ? '✨ 生成动图' : '✨ 立即生成'}}</text>
     </button>
-
-    <!-- Result -->
-    <view wx:if="{{generatedImage}}" class="result-area fade-up">
-       <view class="result-card">
-          <view class="result-header">🎉 生成成功啦！</view>
-          <view class="result-display">
-             <image src="{{generatedImage}}" mode="widthFix" class="result-img"></image>
-          </view>
-       </view>
-       
-       <view wx:if="{{activeTab === 3}}" class="card fps-card">
-          <view class="card-header">
-            <text class="card-icon">⚡</text>
-            <text class="label">动画速度: {{fps}} FPS</text>
-          </view>
-          <slider min="1" max="20" value="{{fps}}" activeColor="#9333ea" block-size="20" bindchange="onFpsChange" />
-       </view>
-
-       <view class="result-actions">
-          <button class="action-btn secondary" bindtap="reset">
-             <text>↺ 再来一张</text>
-          </button>
-          <button class="action-btn primary" bindtap="saveImage">
-             <text>💾 保存美照</text>
-          </button>
-       </view>
-    </view>
-    
-    <view style="height: 120rpx;"></view>
   </view>
 </view>

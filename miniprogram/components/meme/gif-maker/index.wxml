@@ -29,4 +29,31 @@
   <view class="notice-bubble">
     ✨ 点击生成后，请耐心等待魔法生效喵~ ✨
   </view>
+
+  <!-- Result -->
+  <view wx:if="{{generatedImage}}" class="result-area fade-up" style="margin-top: 40rpx;">
+     <view class="result-card">
+        <view class="result-header">🎉 生成成功啦！</view>
+        <view class="result-display">
+           <image src="{{generatedImage}}" mode="widthFix" class="result-img"></image>
+        </view>
+        
+        <view class="card fps-card">
+          <view class="card-header">
+            <text class="card-icon">⚡</text>
+            <text class="label">动画速度: {{fps}} FPS</text>
+          </view>
+          <slider min="1" max="20" value="{{fps}}" activeColor="#9333ea" block-size="20" bindchange="onFpsChange" />
+        </view>
+
+        <view class="result-actions">
+           <button class="action-btn secondary" bindtap="reset">
+              <text>↺ 再来一张</text>
+           </button>
+           <button class="action-btn primary" bindtap="saveImage">
+              <text>💾 保存动图</text>
+           </button>
+        </view>
+     </view>
+  </view>
 </view>

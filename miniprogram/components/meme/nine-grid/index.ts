@@ -14,8 +14,13 @@ Component({
         description: {
             type: String,
             value: ''
+        },
+        generatedImage: {
+            type: String,
+            value: ''
         }
     },
+
     methods: {
         handleImageUpload() {
             wx.chooseMedia({
@@ -37,6 +42,20 @@ Component({
         handleInputDesc(e: WechatMiniprogram.Input) {
             const value = e.detail.value;
             this.triggerEvent('updateDescription', { description: value });
+        },
+
+        reset() {
+            this.triggerEvent('reset');
+        },
+
+        saveImage() {
+            if (this.properties.generatedImage) {
+                wx.saveImageToPhotosAlbum({
+                    filePath: this.properties.generatedImage,
+                    success: () => wx.showToast({ title: '已保存', icon: 'success' }),
+                    fail: () => wx.showToast({ title: '保存失败', icon: 'none' })
+                });
+            }
         }
     }
 })
