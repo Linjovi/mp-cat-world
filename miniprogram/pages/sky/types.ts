@@ -28,6 +28,25 @@ export interface HourlyWeatherData {
   visibility: number[]; // meters
   wind_speed_10m: number[]; // km/h
   wind_direction_10m?: number[];
+  // Optional fields: the API omits whole arrays and may return null per hour
+  wind_gusts_10m?: (number | null)[]; // km/h
+  pressure_msl?: (number | null)[]; // hPa
+  /**
+   * Convective cloud base height in meters, null when there is no convective cloud.
+   * Height datum is not documented by the API; consumers treat it as above mean sea
+   * level (AMSL) without conversion and must state that assumption.
+   */
+  convective_cloud_base?: (number | null)[];
+  temperature_925hPa?: (number | null)[]; // °C
+  temperature_850hPa?: (number | null)[]; // °C
+  // 700hPa (~3000m) keeps the profile usable for summits above the 925/850 levels
+  temperature_700hPa?: (number | null)[]; // °C
+  relative_humidity_925hPa?: (number | null)[]; // %
+  relative_humidity_850hPa?: (number | null)[]; // %
+  relative_humidity_700hPa?: (number | null)[]; // %
+  cloud_cover_925hPa?: (number | null)[]; // %
+  cloud_cover_850hPa?: (number | null)[]; // %
+  cloud_cover_700hPa?: (number | null)[]; // %
 }
 
 export interface DailyWeatherData {
@@ -47,8 +66,32 @@ export interface WeatherApiResponse {
   longitude: number;
   elevation: number;
   timezone: string;
+  utc_offset_seconds?: number;
   hourly: HourlyWeatherData;
   daily: DailyWeatherData;
+}
+
+/** Open-Meteo Air Quality hourly payload (weak dependency, may be missing) */
+export interface AirQualityHourlyData {
+  time: string[];
+  pm2_5?: (number | null)[]; // μg/m³
+  pm10?: (number | null)[]; // μg/m³
+  aerosol_optical_depth?: (number | null)[]; // 550nm, dimensionless
+  us_aqi?: (number | null)[];
+}
+
+export interface AirQualityApiResponse {
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+  utc_offset_seconds?: number;
+  hourly: AirQualityHourlyData;
+}
+
+/** Combined loader result: weather is required, air quality degrades to null */
+export interface SkyForecastBundle {
+  weather: WeatherApiResponse;
+  airQuality: AirQualityApiResponse | null;
 }
 
 export type PhenomenonType = 'travel_weather' | 'cloud_sea' | 'sunrise' | 'sunrise_glow' | 'sunset_glow' | 'starry_sky';

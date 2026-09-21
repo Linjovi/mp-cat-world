@@ -22,10 +22,12 @@
     ]
   },
   "include": [
-    "miniprogram/**/*.ts"
+    "miniprogram/**/*.ts",
+    "typings/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "天象观测预测"
+    "天象观测预测",
+    "miniprogram/**/*.test.ts"
   ]
 }

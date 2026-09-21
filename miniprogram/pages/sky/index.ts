@@ -1,4 +1,5 @@
-import {
+import type {
+  AirQualityApiResponse,
   LocationItem,
   DailyForecastEvaluation,
   PhenomenonType,
@@ -13,7 +14,7 @@ import {
   saveLocation,
   removeSavedLocation,
 } from './utils/locations';
-import { fetchWeatherForecast, searchLocations, getCurrentCoordinates } from './utils/api';
+import { fetchSkyForecastBundle, searchLocations, getCurrentCoordinates } from './utils/api';
 import { evaluateForecast } from './utils/weatherModel';
 
 Page({
@@ -26,6 +27,7 @@ Page({
     currentLocation: PRESET_LOCATIONS[0] as LocationItem,
     evaluations: [] as DailyForecastEvaluation[],
     rawApiData: null as WeatherApiResponse | null,
+    airQualityData: null as AirQualityApiResponse | null,
     selectedDayIdx: 0,
     activeTab: 'travel_weather' as PhenomenonType,
 
@@ -117,14 +119,19 @@ Page({
     });
 
     try {
-      const data = await fetchWeatherForecast(loc.latitude, loc.longitude);
-      const evals = evaluateForecast(data);
+      const { weather, airQuality } = await fetchSkyForecastBundle(
+        loc.latitude,
+        loc.longitude,
+        loc.elevation
+      );
+      const evals = evaluateForecast(weather, airQuality);
 
       setLastActiveLocation(loc);
 
       this.setData(
         {
-          rawApiData: data,
+          rawApiData: weather,
+          airQualityData: airQuality,
           evaluations: evals,
           selectedDayIdx: 0,
           currentLocation: loc,
@@ -189,7 +196,7 @@ Page({
             cloudMid: Math.round(hourly.cloud_cover_mid[i] ?? 0),
             cloudHigh: Math.round(hourly.cloud_cover_high[i] ?? 0),
             cloudTotal: Math.round(hourly.cloud_cover[i] ?? 0),
-            precipProb: Math.round(hourly.precipitation_probability[i] ?? 0),
+            precipProb: Math.round(hourly.precipitation_probability?.[i] ?? 0),
           });
         }
       }
