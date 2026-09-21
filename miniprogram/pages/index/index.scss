@@ -77,29 +77,8 @@
   /* Taller cards */
   box-sizing: border-box;
 
-  /* Specific Card Gradients (Subtle) */
-  &.card-meme {
-    background: linear-gradient(135deg, #ffffff 0%, #E9FAF3 100%);
-  }
-
-  &.card-photo {
-    background: linear-gradient(135deg, #ffffff 0%, #EFFBF5 100%);
-  }
-
-  &.card-mbti {
-    background: linear-gradient(135deg, #ffffff 0%, #F4F0FF 100%);
-  }
-
-  &.card-judge {
-    background: linear-gradient(135deg, #ffffff 0%, #FFF6EB 100%);
-  }
-
-  &.card-gossip {
-    background: linear-gradient(135deg, #ffffff 0%, #FFF0F2 100%);
-  }
-
-  &.card-tarot {
-    background: linear-gradient(135deg, #ffffff 0%, #F8F2FF 100%);
+  &.card-sky {
+    background: linear-gradient(135deg, #ffffff 0%, #EBF5FF 100%);
   }
 
   /* Left Icon */
@@ -136,29 +115,8 @@
     }
   }
 
-  /* Specific Icon Rings (Optional border colors) */
-  &.card-meme .card-icon-container {
-    border: 6rpx solid #D1F2E3;
-  }
-
-  &.card-photo .card-icon-container {
-    border: 6rpx solid #D5F1DE;
-  }
-
-  &.card-mbti .card-icon-container {
-    border: 6rpx solid #E6E0FA;
-  }
-
-  &.card-judge .card-icon-container {
-    border: 6rpx solid #FAE3CC;
-  }
-
-  &.card-gossip .card-icon-container {
-    border: 6rpx solid #FBDee5;
-  }
-
-  &.card-tarot .card-icon-container {
-    border: 6rpx solid #EADAFF;
+  &.card-sky .card-icon-container {
+    border: 6rpx solid #CFE6FA;
   }
 
 
@@ -215,29 +173,9 @@
       color: #00A854;
     }
 
-    &.indigo {
-      background: #ECE6FF;
-      color: #5B2AD8;
-    }
-
-    &.purple {
-      background: #F3E6FF;
-      color: #9146FF;
-    }
-
-    &.orange {
-      background: #FFE8D6;
-      color: #FF7D00;
-    }
-
     &.blue {
       background: #E6F2FF;
       color: #007AFF;
-    }
-
-    &.pink {
-      background: #FFE6EB;
-      color: #FF2D55;
     }
   }
 

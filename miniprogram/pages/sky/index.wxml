@@ -1,0 +1,672 @@
+<view class="sky-container">
+  <!-- Custom Navigation Bar -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-content" style="height: {{navBarHeight}}px;">
+      <view class="back-btn" bindtap="handleBack">
+        <view class="ic ic-chevron-left back-arrow"></view>
+      </view>
+      <view class="nav-title">出游助手</view>
+      <view class="nav-placeholder"></view>
+    </view>
+  </view>
+
+  <!-- Location & Action Header -->
+  <view class="location-header">
+    <view class="location-card" bindtap="openLocationModal">
+      <view class="loc-main">
+        <view class="loc-title-row">
+          <view class="ic ic-pin loc-icon"></view>
+          <text class="loc-name">{{currentLocation.name}}</text>
+        </view>
+        <view class="loc-sub-row">
+          {{currentLocation.admin1 || '中国'}} · {{currentLocation.latitude}}°N, {{currentLocation.longitude}}°E<text wx:if="{{currentLocation.elevation !== undefined}}"> · {{currentLocation.elevation}}m</text>
+        </view>
+      </view>
+      <view class="loc-switch-btn">
+        <view class="ic ic-swap"></view>
+        <text>换地点</text>
+      </view>
+    </view>
+
+    <!-- Quick Action Icons -->
+    <view class="header-actions">
+      <view class="action-btn {{isLocating ? 'loading' : ''}}" bindtap="handleLocateUser">
+        <view class="ic ic-locate action-icon"></view>
+        <text class="action-text">{{isLocating ? '定位中' : '定位'}}</text>
+      </view>
+      <view class="action-btn" bindtap="openGuideModal">
+        <view class="ic ic-book action-icon"></view>
+        <text class="action-text">指南</text>
+      </view>
+      <view class="action-btn" bindtap="handleRefresh">
+        <view class="ic ic-refresh action-icon {{isLoading ? 'spinning' : ''}}"></view>
+        <text class="action-text">刷新</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Error Banner -->
+  <view wx:if="{{errorMsg}}" class="error-banner">
+    <view class="ic ic-alert error-icon"></view>
+    <text class="error-text">{{errorMsg}}</text>
+    <view class="error-retry-btn" bindtap="handleRefresh">重试</view>
+  </view>
+
+  <!-- Loading State -->
+  <view wx:if="{{isLoading && !currentDay}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <view class="loading-title">正在解算 {{currentLocation.name}} 气象指数...</view>
+    <view class="loading-sub">解算分层云量、体感温湿、降水概率与最佳时段</view>
+  </view>
+
+  <!-- Main Content Area -->
+  <view wx:if="{{currentDay && currentPrediction}}" class="main-body">
+
+    <!-- 7-Day Date Selector Strip -->
+    <view class="date-strip-section">
+      <view class="section-header">
+        <view class="section-title-wrap">
+          <text class="section-title">未来 7 天推演</text>
+        </view>
+      </view>
+
+      <scroll-view class="date-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="date-card-list">
+          <block wx:for="{{evaluations}}" wx:key="date">
+            <view
+              class="date-card {{selectedDayIdx === index ? 'selected theme-' + activeTab : ''}}"
+              bindtap="handleSelectDay"
+              data-index="{{index}}"
+            >
+              <view class="card-date-header">
+                <text class="card-date">{{item.dateLabel}}</text>
+                <text class="card-day">{{item.dayOfWeek}}</text>
+              </view>
+
+              <view class="card-score">
+                <text class="score-num score-color-{{item.predictions[activeTab].level}}">{{item.predictions[activeTab].score}}</text>
+              </view>
+
+              <view class="card-footer">
+                <text class="weather-text">{{item.weatherDesc}}</text>
+                <text class="temp-text">{{item.tempMax}}°/{{item.tempMin}}°</text>
+              </view>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- Hero Phenomenon Detail Card -->
+    <view class="phenomenon-hero theme-{{activeTab}}">
+      <view class="hero-top-row">
+        <view class="hero-meta">
+          <view class="hero-title-row">
+            <view class="ic phenomenon-icon-box hero-icon-{{activeTab}}"></view>
+            <view class="hero-title">{{currentPrediction.title}}</view>
+            <view class="hero-level-tag">{{currentPrediction.levelLabel}}</view>
+          </view>
+          <view class="hero-summary">{{currentPrediction.summary}}</view>
+          <view class="hero-sun-row">
+            <text>日出: <text class="sun-time">{{currentDay.sunrise}}</text></text>
+            <text class="sun-dot">·</text>
+            <text>日落: <text class="sun-time">{{currentDay.sunset}}</text></text>
+            <text class="sun-dot">·</text>
+            <text>{{currentDay.moonInfo.phaseName}}</text>
+          </view>
+        </view>
+
+        <!-- Circular Score Gauge -->
+        <view class="score-gauge-box">
+          <view class="gauge-circle">
+            <text class="gauge-score score-color-{{currentPrediction.level}}">{{currentPrediction.score}}</text>
+            <text class="gauge-unit">
+              <text wx:if="{{activeTab === 'travel_weather'}}">徒步分</text>
+              <text wx:else>观测分</text>
+            </text>
+          </view>
+          <view class="gauge-level-text">
+            <text wx:if="{{currentPrediction.score >= 80}}">极力推荐</text>
+            <text wx:elif="{{currentPrediction.score >= 60}}">适宜前往</text>
+            <text wx:elif="{{currentPrediction.score >= 40}}">谨慎观望</text>
+            <text wx:else>条件不佳</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Best Observation / Outing Window -->
+      <view class="best-time-box">
+        <view class="best-time-header">
+          <view class="ic ic-clock time-icon"></view>
+          <text class="time-label">
+            <text wx:if="{{activeTab === 'travel_weather'}}">推荐徒步出行时间窗口</text>
+            <text wx:else>最佳天象观测时间窗口</text>
+          </text>
+        </view>
+        <view class="best-time-value">{{currentPrediction.bestTimeWindow}}</view>
+        <view wx:if="{{currentPrediction.countdownHint}}" class="best-time-hint">
+          <view class="ic ic-bulb"></view>
+          <text>{{currentPrediction.countdownHint}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Meteorological Factors Grid Card -->
+    <view class="card-section">
+      <view class="section-header">
+        <view class="section-title-wrap">
+          <text class="section-title">气象成因核心指标</text>
+        </view>
+        <text class="section-hint">ECMWF / GFS 高精度解算</text>
+      </view>
+
+      <view class="factors-grid">
+        <block wx:for="{{currentPrediction.factors}}" wx:key="name">
+          <view class="factor-item factor-status-{{item.status}}">
+            <view class="factor-top">
+              <view class="factor-name-row">
+                <text wx:if="{{item.weightLabel}}" class="factor-weight">{{item.weightLabel}}</text>
+                <text class="factor-name">{{item.name}}</text>
+              </view>
+              <view class="factor-status-badge status-{{item.status}}">
+                <view class="status-dot"></view>
+                <text wx:if="{{item.status === 'optimal'}}">极佳</text>
+                <text wx:elif="{{item.status === 'good'}}">良好</text>
+                <text wx:elif="{{item.status === 'moderate'}}">一般</text>
+                <text wx:else>不利</text>
+              </view>
+            </view>
+            <view class="factor-bottom">
+              <text class="factor-val">{{item.value}}</text>
+              <text class="factor-hint">{{item.hint}}</text>
+            </view>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 24-Hour Observation Score Trend Bar -->
+    <view class="card-section">
+      <view class="section-header">
+        <view class="section-title-wrap">
+          <text class="section-title">24 小时逐时适宜走势</text>
+        </view>
+        <view wx:if="{{activeHourData}}" class="active-hour-tag">
+          <text class="tag-hour">{{activeHourData.displayHour}}</text>
+          <text class="tag-score">{{activeHourData.score}}分</text>
+          <text class="tag-desc">{{activeHourData.detail}}</text>
+        </view>
+      </view>
+
+      <scroll-view class="hourly-bar-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="hourly-bar-list">
+          <block wx:for="{{currentPrediction.hourlyScores}}" wx:key="hour">
+            <view
+              class="bar-column {{activeHourIndex === index ? 'active' : ''}}"
+              bindtap="handleSelectHour"
+              data-index="{{index}}"
+            >
+              <view class="bar-track">
+                <view
+                  class="bar-fill {{item.score >= 60 ? 'bar-highlight theme-bg-' + activeTab : 'bar-normal'}}"
+                  style="height: {{item.score * 0.9}}rpx;"
+                ></view>
+              </view>
+              <text class="bar-label">{{item.displayHour}}</text>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- Photography / Outing Advice Card (Collapsible) -->
+    <view class="card-section advice-card">
+      <view class="advice-header" bindtap="toggleTips">
+        <view class="advice-title-wrap">
+          <view wx:if="{{activeTab === 'travel_weather'}}" class="ic ic-tree advice-icon"></view>
+          <view wx:else class="ic ic-camera advice-icon"></view>
+          <view class="advice-text-col">
+            <view class="advice-main-title">
+              <text wx:if="{{activeTab === 'travel_weather'}}">出游路线建议与出行装备清单</text>
+              <text wx:else>摄影机位、焦段与曝光建议</text>
+            </view>
+            <view class="advice-sub-title">
+              <text wx:if="{{activeTab === 'travel_weather'}}">推荐适宜户外活动、穿衣与防护装备</text>
+              <text wx:else>构图光线技巧与相机滤镜参数指导</text>
+            </view>
+          </view>
+        </view>
+        <view class="ic ic-chevron-right arrow-indicator {{showTips ? 'open' : ''}}"></view>
+      </view>
+
+      <view wx:if="{{showTips}}" class="advice-body">
+        <view class="advice-content-block">
+          <view class="advice-content-title">
+            <view wx:if="{{activeTab === 'travel_weather'}}" class="ic ic-route"></view>
+            <view wx:else class="ic ic-camera"></view>
+            <text wx:if="{{activeTab === 'travel_weather'}}">活动与路线建议</text>
+            <text wx:else>构图与曝光参考</text>
+          </view>
+          <text class="advice-paragraph">{{currentPrediction.photographerTips}}</text>
+        </view>
+
+        <view wx:if="{{currentPrediction.equipmentAdvice}}" class="advice-equip-box">
+          <view class="equip-title">
+            <view class="ic ic-backpack"></view>
+            <text>推荐携带装备</text>
+          </view>
+          <text class="equip-content">{{currentPrediction.equipmentAdvice}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 24-Hour Sky Cloud Layer Stratification (Collapsible) -->
+    <view wx:if="{{skyHoursList.length > 0}}" class="card-section sky-strat-section">
+      <view class="advice-header" bindtap="toggleSkyTimeline">
+        <view class="advice-title-wrap">
+          <view class="ic ic-layers advice-icon"></view>
+          <view class="advice-text-col">
+            <view class="advice-main-title">24 小时立体分层云量深入剖析</view>
+            <view class="advice-sub-title">低空逆温层、中高空云幕与通透度剖析</view>
+          </view>
+        </view>
+        <view class="ic ic-chevron-right arrow-indicator {{showSkyTimeline ? 'open' : ''}}"></view>
+      </view>
+
+      <view wx:if="{{showSkyTimeline}}" class="sky-timeline-body">
+        <!-- Hour selector -->
+        <scroll-view class="sky-hour-scroll" scroll-x="true" show-scrollbar="false">
+          <view class="sky-hour-list">
+            <block wx:for="{{skyHoursList}}" wx:key="fullTime">
+              <view
+                class="sky-hour-chip {{selectedSkyHourIdx === index ? 'selected' : ''}}"
+                bindtap="handleSelectSkyHour"
+                data-index="{{index}}"
+              >
+                {{item.timeStr}}
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+
+        <!-- Selected Hour Cloud Layer Stats -->
+        <view wx:if="{{activeSkyHourData}}" class="sky-hour-detail">
+          <view class="sky-detail-metrics">
+            <view class="metric-pill">
+              <text class="m-name">气温</text>
+              <text class="m-val">{{activeSkyHourData.temp}}°C</text>
+            </view>
+            <view class="metric-pill">
+              <text class="m-name">湿度</text>
+              <text class="m-val">{{activeSkyHourData.humidity}}%</text>
+            </view>
+            <view class="metric-pill">
+              <text class="m-name">风速</text>
+              <text class="m-val">{{activeSkyHourData.windSpeed}}km/h</text>
+            </view>
+            <view class="metric-pill">
+              <text class="m-name">能见度</text>
+              <text class="m-val">{{activeSkyHourData.visibilityKm}}km</text>
+            </view>
+            <view class="metric-pill">
+              <text class="m-name">降水概率</text>
+              <text class="m-val">{{activeSkyHourData.precipProb}}%</text>
+            </view>
+          </view>
+
+          <!-- Layer Percentages -->
+          <view class="cloud-bars-container">
+            <view class="cloud-layer-row">
+              <text class="layer-title">高空云 (&gt;6000m)</text>
+              <view class="layer-progress-bar">
+                <view class="progress-inner high-cloud" style="width: {{activeSkyHourData.cloudHigh}}%;"></view>
+              </view>
+              <text class="layer-pct">{{activeSkyHourData.cloudHigh}}%</text>
+            </view>
+            <view class="cloud-layer-row">
+              <text class="layer-title">中空云 (2000-6000m)</text>
+              <view class="layer-progress-bar">
+                <view class="progress-inner mid-cloud" style="width: {{activeSkyHourData.cloudMid}}%;"></view>
+              </view>
+              <text class="layer-pct">{{activeSkyHourData.cloudMid}}%</text>
+            </view>
+            <view class="cloud-layer-row">
+              <text class="layer-title">低空云 (0-2000m·云海层)</text>
+              <view class="layer-progress-bar">
+                <view class="progress-inner low-cloud" style="width: {{activeSkyHourData.cloudLow}}%;"></view>
+              </view>
+              <text class="layer-pct">{{activeSkyHourData.cloudLow}}%</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Page Footer Note -->
+    <view class="page-footer">
+      <view class="footer-brand">
+        <view class="ic ic-sparkle sparkle"></view>
+        <text class="brand-text">出游助手 · 天象观测预测</text>
+      </view>
+      <view class="footer-data-source">
+        气象数据来源: Open-Meteo 高精度预报模型 (ECMWF/GFS)
+      </view>
+    </view>
+
+  </view>
+
+  <!-- Bottom Fixed Phenomenon Tab Bar (4 Tabs) -->
+  <view class="bottom-tab-bar">
+    <view
+      class="tab-item {{activeTab === 'travel_weather' ? 'active tab-emerald' : ''}}"
+      bindtap="handleTabChange"
+      data-tab="travel_weather"
+    >
+      <view class="ic tab-icon tab-icon-hike"></view>
+      <text class="tab-label">徒步</text>
+    </view>
+
+    <view
+      class="tab-item {{activeTab === 'cloud_sea' ? 'active tab-sky' : ''}}"
+      bindtap="handleTabChange"
+      data-tab="cloud_sea"
+    >
+      <view class="ic tab-icon tab-icon-cloud"></view>
+      <text class="tab-label">云海</text>
+    </view>
+
+    <view
+      class="tab-item {{activeTab === 'sunrise' || activeTab === 'sunrise_glow' ? 'active tab-rose' : ''}}"
+      bindtap="handleTabChange"
+      data-tab="sunrise"
+    >
+      <view class="ic tab-icon tab-icon-sunrise"></view>
+      <text class="tab-label">日出</text>
+    </view>
+
+    <view
+      class="tab-item {{activeTab === 'sunset_glow' ? 'active tab-amber' : ''}}"
+      bindtap="handleTabChange"
+      data-tab="sunset_glow"
+    >
+      <view class="ic tab-icon tab-icon-sunset"></view>
+      <text class="tab-label">晚霞</text>
+    </view>
+  </view>
+
+  <!-- ================= Location Modal ================= -->
+  <view wx:if="{{isLocationModalOpen}}" class="modal-overlay" bindtap="closeLocationModal">
+    <view class="modal-content" catchtap="true">
+      <view class="modal-header">
+        <view class="modal-title">选择预测地点</view>
+        <view class="modal-close-btn" bindtap="closeLocationModal">
+          <view class="ic ic-close"></view>
+        </view>
+      </view>
+
+      <!-- Modal Tabs -->
+      <view class="modal-tabs">
+        <view
+          class="m-tab {{locationTab === 'places' ? 'active' : ''}}"
+          bindtap="switchLocationTab"
+          data-tab="places"
+        >选择地点</view>
+        <view
+          class="m-tab {{locationTab === 'saved' ? 'active' : ''}}"
+          bindtap="switchLocationTab"
+          data-tab="saved"
+        >我的收藏 ({{savedLocs.length}})</view>
+        <view
+          class="m-tab {{locationTab === 'custom' ? 'active' : ''}}"
+          bindtap="switchLocationTab"
+          data-tab="custom"
+        >自定义坐标</view>
+      </view>
+
+      <!-- Modal Tab 1: Places (presets + search) -->
+      <view wx:if="{{locationTab === 'places'}}" class="tab-panel">
+        <view class="search-input-row">
+          <input
+            class="search-input"
+            placeholder="搜索城市或山名，如 宝石山、黄山..."
+            value="{{searchQuery}}"
+            bindinput="handleSearchInput"
+            bindconfirm="handleSearch"
+          />
+          <view class="search-btn {{isSearching ? 'loading' : ''}}" bindtap="handleSearch">
+            {{isSearching ? '检索中' : '搜索'}}
+          </view>
+        </view>
+
+        <view wx:if="{{!searchQuery}}" class="preset-categories">
+          <view
+            class="cat-chip {{presetCategory === 'hangzhou' ? 'active' : ''}}"
+            bindtap="switchPresetCategory"
+            data-category="hangzhou"
+          >杭州周边</view>
+          <view
+            class="cat-chip {{presetCategory === 'zhejiang' ? 'active' : ''}}"
+            bindtap="switchPresetCategory"
+            data-category="zhejiang"
+          >浙江名山</view>
+          <view
+            class="cat-chip {{presetCategory === 'national' ? 'active' : ''}}"
+            bindtap="switchPresetCategory"
+            data-category="national"
+          >全国经典</view>
+        </view>
+
+        <scroll-view class="location-list-scroll" scroll-y="true">
+          <view wx:if="{{filteredPresets.length === 0}}" class="empty-list-tip">
+            {{searchQuery ? '未找到匹配地点，可点搜索查找更多' : '暂无预设地点'}}
+          </view>
+          <view class="loc-list">
+            <block wx:for="{{filteredPresets}}" wx:key="id">
+              <view
+                class="loc-list-item {{currentLocation.id === item.id ? 'current' : ''}}"
+                bindtap="handleSelectLocation"
+                data-loc="{{item}}"
+              >
+                <view class="item-info">
+                  <view class="item-name-row">
+                    <text class="item-name">{{item.name}}</text>
+                  </view>
+                  <view class="item-desc">{{item.admin2 || item.admin1 || ''}} · {{item.latitude}}°N, {{item.longitude}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
+                </view>
+                <view class="item-save-btn {{savedIdMap[item.id] ? 'saved' : ''}}" catchtap="handleToggleSave" data-loc="{{item}}">
+                  <text wx:if="{{savedIdMap[item.id]}}">已收藏</text>
+                  <text wx:else>收藏</text>
+                </view>
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- Modal Tab 3: Saved Locations -->
+      <view wx:if="{{locationTab === 'saved'}}" class="tab-panel">
+        <scroll-view class="location-list-scroll" scroll-y="true">
+          <view wx:if="{{savedLocs.length === 0}}" class="empty-list-tip">
+            暂无收藏地点，可在「选择地点」中点击收藏
+          </view>
+          <view class="loc-list">
+            <block wx:for="{{savedLocs}}" wx:key="id">
+              <view class="loc-list-item" bindtap="handleSelectLocation" data-loc="{{item}}">
+                <view class="item-info">
+                  <view class="item-name-row">
+                    <text class="item-name">{{item.name}}</text>
+                  </view>
+                  <view class="item-desc">{{item.latitude}}°N, {{item.longitude}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
+                </view>
+                <view class="item-del-btn" catchtap="handleToggleSave" data-loc="{{item}}">
+                  <view class="ic ic-trash"></view>
+                  <text>移除</text>
+                </view>
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- Modal Tab 4: Custom Coordinates -->
+      <view wx:if="{{locationTab === 'custom'}}" class="tab-panel custom-form-panel">
+        <view class="form-group">
+          <text class="form-label">地点名称：</text>
+          <input
+            class="form-input"
+            placeholder="如：家门口观景台"
+            value="{{customName}}"
+            bindinput="handleCustomNameInput"
+          />
+        </view>
+        <view class="form-row">
+          <view class="form-group flex-1">
+            <text class="form-label">纬度 (-90 ~ 90)：</text>
+            <input
+              class="form-input"
+              type="digit"
+              placeholder="30.26"
+              value="{{customLat}}"
+              bindinput="handleCustomLatInput"
+            />
+          </view>
+          <view class="form-group flex-1">
+            <text class="form-label">经度 (-180 ~ 180)：</text>
+            <input
+              class="form-input"
+              type="digit"
+              placeholder="120.14"
+              value="{{customLon}}"
+              bindinput="handleCustomLonInput"
+            />
+          </view>
+        </view>
+        <view class="form-group">
+          <text class="form-label">海拔 (米，选填)：</text>
+          <input
+            class="form-input"
+            type="number"
+            placeholder="200"
+            value="{{customElev}}"
+            bindinput="handleCustomElevInput"
+          />
+        </view>
+
+        <view class="custom-save-btn" bindtap="handleSaveCustomLocation">
+          保存并解算该位置气象
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ================= Observation Guide Modal ================= -->
+  <view wx:if="{{isGuideModalOpen}}" class="modal-overlay" bindtap="closeGuideModal">
+    <view class="modal-content guide-modal-content" catchtap="true">
+      <view class="modal-header">
+        <view class="modal-title">
+          <view class="ic ic-book-ink"></view>
+          <text>天象气象成因与摄影指南</text>
+        </view>
+        <view class="modal-close-btn" bindtap="closeGuideModal">
+          <view class="ic ic-close"></view>
+        </view>
+      </view>
+
+      <!-- Guide Tabs -->
+      <view class="modal-tabs">
+        <view
+          class="m-tab {{guideTopic === 'cloud_sea' ? 'active' : ''}}"
+          bindtap="switchGuideTopic"
+          data-topic="cloud_sea"
+        >云海物理机制</view>
+        <view
+          class="m-tab {{guideTopic === 'glow' ? 'active' : ''}}"
+          bindtap="switchGuideTopic"
+          data-topic="glow"
+        >日出晚霞秘诀</view>
+        <view
+          class="m-tab {{guideTopic === 'camera' ? 'active' : ''}}"
+          bindtap="switchGuideTopic"
+          data-topic="camera"
+        >摄影参数速查</view>
+      </view>
+
+      <scroll-view class="guide-scroll" scroll-y="true">
+        <!-- Topic 1: Cloud Sea -->
+        <view wx:if="{{guideTopic === 'cloud_sea'}}" class="guide-article">
+          <view class="guide-highlight-box">
+            <view class="guide-h-title">
+              <view class="ic ic-bulb"></view>
+              <text>什么是高山云海的“气象黄金公式”？</text>
+            </view>
+            <view class="guide-h-desc">
+              云海本质是山地低层层积云或强辐射雾：
+              【近地高湿 (&gt;80%) + 谷底微风 (&lt;15km/h) + 逆温层压制 + 高空晴朗少云】。
+            </view>
+          </view>
+
+          <view class="guide-section">
+            <view class="g-sec-title">1. 雨后初晴是最佳抓手</view>
+            <view class="g-sec-p">尤其是降雨刚停或冷空气南下后的第一个清晨，山谷植被蒸腾大量水汽，在夜间剧烈辐射降温下迅速凝聚成浓厚雾毯。</view>
+          </view>
+
+          <view class="guide-section">
+            <view class="g-sec-title">2. 逆温层如同“锅盖”</view>
+            <view class="g-sec-p">正常情况下海拔越高气温越低。但当下沉气流或冷空气汇聚谷底形成“下冷上暖”的逆温时，云雾无法向上对流，被死死按在谷底，形成平整如棉花般的云海天幕。</view>
+          </view>
+
+          <view class="guide-section">
+            <view class="g-sec-title">3. 必须高于云顶高度</view>
+            <view class="g-sec-p">云海一般分布在海拔 600m ~ 1800m 之间。观测机位必须高于云层顶部，否则身处云中只会是一片浓雾（能见度不足百米）。</view>
+          </view>
+        </view>
+
+        <!-- Topic 2: Glow -->
+        <view wx:if="{{guideTopic === 'glow'}}" class="guide-article">
+          <view class="guide-highlight-box">
+            <view class="guide-h-title">
+              <view class="ic ic-sunrise-rose"></view>
+              <text>绚丽火烧云与红日的三大硬指标</text>
+            </view>
+            <view class="guide-h-desc">
+              火烧云发生条件：
+              【西方地平线无遮挡（透光通道）+ 天顶分布良好中高云反射层（40%~70%）+ 空气洁净透光良好】。
+            </view>
+          </view>
+
+          <view class="guide-section">
+            <view class="g-sec-title">1. 光学散射原理（瑞利散射）</view>
+            <view class="g-sec-p">日出日落时太阳高度角极低，光线穿透大气层距离是正午的十余倍。波长较短的蓝紫光几乎被散射殆尽，唯有波长较长的橙红光穿透抵达，染透中高层云彩底板。</view>
+          </view>
+
+          <view class="guide-section">
+            <view class="g-sec-title">2. 最忌讳低空“黑云压顶”</view>
+            <view class="g-sec-p">如果太阳落山或升起的方位有低空厚层积雨云，阳光在进入大气底层前就被彻底遮死，即使天顶有再好的云彩也无法被照亮，只会呈现阴沉死灰色。</view>
+          </view>
+        </view>
+
+        <!-- Topic 3: Camera & Equipment -->
+        <view wx:if="{{guideTopic === 'camera'}}" class="guide-article">
+          <view class="guide-section">
+            <view class="g-sec-title">
+              <view class="ic ic-camera"></view>
+              <text>推荐焦段与机位视角</text>
+            </view>
+            <view class="g-sec-p">• 广角镜头 (14-24mm/16-35mm)：拍摄辽阔云海大场面、火烧云满天铺展与前景地景。</view>
+            <view class="g-sec-p">• 长焦镜头 (70-200mm/100-400mm)：特写山峰在云海中如孤岛仙境，或将日出红日拍成饱满大红球。</view>
+          </view>
+
+          <view class="guide-section">
+            <view class="g-sec-title">
+              <view class="ic ic-sliders"></view>
+              <text>曝光参数速查表</text>
+            </view>
+            <view class="g-sec-p">• 拍摄云海流动：光圈 f/8~f/11，ISO 100，使用 ND1000 减光镜长曝光 10~30 秒，雾浪丝滑如绸缎。</view>
+            <view class="g-sec-p">• 拍摄日落晚霞：光圈 f/8，点测光对准天空较亮的中灰区域，使用 GND0.9 软渐变灰滤镜压暗天空，平衡地景曝光。</view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+</view>

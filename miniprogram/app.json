@@ -1,13 +1,7 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/judge/index",
-    "pages/tarot/index",
-    "pages/answer/index",
-    "pages/hot-search/index",
-    "pages/mbti/index",
-    "pages/meme/index",
-    "pages/photography/index"
+    "pages/sky/index"
   ],
   "window": {
     "navigationBarTextStyle": "black",
@@ -27,5 +21,13 @@
   },
   "componentFramework": "glass-easel",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置将用于获取当地徒步、云海、日出和晚霞预报"
+    }
+  }
 }
