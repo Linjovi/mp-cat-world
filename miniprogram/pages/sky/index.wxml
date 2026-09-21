@@ -19,7 +19,7 @@
           <text class="loc-name">{{currentLocation.name}}</text>
         </view>
         <view class="loc-sub-row">
-          {{currentLocation.admin1 || '中国'}} · {{currentLocation.latitude}}°N, {{currentLocation.longitude}}°E<text wx:if="{{currentLocation.elevation !== undefined}}"> · {{currentLocation.elevation}}m</text>
+          {{currentLocation.admin1 || '中国'}} · {{currentLocation.latitudeDisplay}}°N, {{currentLocation.longitudeDisplay}}°E<text wx:if="{{currentLocation.elevation !== undefined}}"> · {{currentLocation.elevation}}m</text>
         </view>
       </view>
       <view class="loc-switch-btn">
@@ -185,11 +185,11 @@
       </view>
     </view>
 
-    <!-- 24-Hour Observation Score Trend Bar -->
-    <view class="card-section">
+    <!-- 24-Hour Observation Score Trend Bar + Deep Dive -->
+    <view class="card-section sky-strat-section">
       <view class="section-header">
         <view class="section-title-wrap">
-          <text class="section-title">24 小时逐时适宜走势</text>
+          <text class="section-title">24小时走势</text>
         </view>
         <view wx:if="{{activeHourData}}" class="active-hour-tag">
           <text class="tag-hour">{{activeHourData.displayHour}}</text>
@@ -198,10 +198,17 @@
         </view>
       </view>
 
-      <scroll-view class="hourly-bar-scroll" scroll-x="true" show-scrollbar="false">
+      <scroll-view
+        class="hourly-bar-scroll"
+        scroll-x="true"
+        show-scrollbar="false"
+        scroll-with-animation="true"
+        scroll-into-view="{{hourScrollIntoView}}"
+      >
         <view class="hourly-bar-list">
           <block wx:for="{{currentPrediction.hourlyScores}}" wx:key="hour">
             <view
+              id="hour-bar-{{index}}"
               class="bar-column {{activeHourIndex === index ? 'active' : ''}}"
               bindtap="handleSelectHour"
               data-index="{{index}}"
@@ -217,6 +224,47 @@
           </block>
         </view>
       </scroll-view>
+
+      <!-- Selected-hour Deep Dive (shares the hour picked on the trend bar) -->
+      <view wx:if="{{activeSkyHourData}}" class="trend-deep-dive">
+        <view class="advice-header" bindtap="toggleSkyTimeline">
+          <view class="advice-title-wrap">
+            <view class="ic ic-layers advice-icon"></view>
+            <view class="advice-text-col">
+              <view class="advice-main-title">{{skyInsight.title}}</view>
+              <view class="advice-sub-title">{{skyInsight.subtitle}}</view>
+            </view>
+          </view>
+          <view class="ic ic-chevron-right arrow-indicator {{showSkyTimeline ? 'open' : ''}}"></view>
+        </view>
+
+        <view wx:if="{{showSkyTimeline}}" class="sky-timeline-body">
+          <view class="sky-hour-detail">
+            <view class="sky-detail-metrics">
+              <block wx:for="{{activeSkyHourData.metrics}}" wx:key="name">
+                <view class="metric-pill">
+                  <text class="m-name">{{item.name}}</text>
+                  <text class="m-val">{{item.value}}</text>
+                </view>
+              </block>
+            </view>
+
+            <view class="sky-hour-readout">{{activeSkyHourData.readout}}</view>
+
+            <view class="cloud-bars-container">
+              <block wx:for="{{activeSkyHourData.layers}}" wx:key="title">
+                <view class="cloud-layer-row">
+                  <text class="layer-title">{{item.title}}</text>
+                  <view class="layer-progress-bar">
+                    <view class="progress-inner {{item.kind}}" style="width: {{item.pct}}%;"></view>
+                  </view>
+                  <text class="layer-pct">{{item.pct}}%</text>
+                </view>
+              </block>
+            </view>
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- Photography / Outing Advice Card (Collapsible) -->
@@ -256,88 +304,6 @@
             <text>推荐携带装备</text>
           </view>
           <text class="equip-content">{{currentPrediction.equipmentAdvice}}</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 24-Hour Sky Cloud Layer Stratification (Collapsible) -->
-    <view wx:if="{{skyHoursList.length > 0}}" class="card-section sky-strat-section">
-      <view class="advice-header" bindtap="toggleSkyTimeline">
-        <view class="advice-title-wrap">
-          <view class="ic ic-layers advice-icon"></view>
-          <view class="advice-text-col">
-            <view class="advice-main-title">24 小时立体分层云量深入剖析</view>
-            <view class="advice-sub-title">低空逆温层、中高空云幕与通透度剖析</view>
-          </view>
-        </view>
-        <view class="ic ic-chevron-right arrow-indicator {{showSkyTimeline ? 'open' : ''}}"></view>
-      </view>
-
-      <view wx:if="{{showSkyTimeline}}" class="sky-timeline-body">
-        <!-- Hour selector -->
-        <scroll-view class="sky-hour-scroll" scroll-x="true" show-scrollbar="false">
-          <view class="sky-hour-list">
-            <block wx:for="{{skyHoursList}}" wx:key="fullTime">
-              <view
-                class="sky-hour-chip {{selectedSkyHourIdx === index ? 'selected' : ''}}"
-                bindtap="handleSelectSkyHour"
-                data-index="{{index}}"
-              >
-                {{item.timeStr}}
-              </view>
-            </block>
-          </view>
-        </scroll-view>
-
-        <!-- Selected Hour Cloud Layer Stats -->
-        <view wx:if="{{activeSkyHourData}}" class="sky-hour-detail">
-          <view class="sky-detail-metrics">
-            <view class="metric-pill">
-              <text class="m-name">气温</text>
-              <text class="m-val">{{activeSkyHourData.temp}}°C</text>
-            </view>
-            <view class="metric-pill">
-              <text class="m-name">湿度</text>
-              <text class="m-val">{{activeSkyHourData.humidity}}%</text>
-            </view>
-            <view class="metric-pill">
-              <text class="m-name">风速</text>
-              <text class="m-val">{{activeSkyHourData.windSpeed}}km/h</text>
-            </view>
-            <view class="metric-pill">
-              <text class="m-name">能见度</text>
-              <text class="m-val">{{activeSkyHourData.visibilityKm}}km</text>
-            </view>
-            <view class="metric-pill">
-              <text class="m-name">降水概率</text>
-              <text class="m-val">{{activeSkyHourData.precipProb}}%</text>
-            </view>
-          </view>
-
-          <!-- Layer Percentages -->
-          <view class="cloud-bars-container">
-            <view class="cloud-layer-row">
-              <text class="layer-title">高空云 (&gt;6000m)</text>
-              <view class="layer-progress-bar">
-                <view class="progress-inner high-cloud" style="width: {{activeSkyHourData.cloudHigh}}%;"></view>
-              </view>
-              <text class="layer-pct">{{activeSkyHourData.cloudHigh}}%</text>
-            </view>
-            <view class="cloud-layer-row">
-              <text class="layer-title">中空云 (2000-6000m)</text>
-              <view class="layer-progress-bar">
-                <view class="progress-inner mid-cloud" style="width: {{activeSkyHourData.cloudMid}}%;"></view>
-              </view>
-              <text class="layer-pct">{{activeSkyHourData.cloudMid}}%</text>
-            </view>
-            <view class="cloud-layer-row">
-              <text class="layer-title">低空云 (0-2000m·云海层)</text>
-              <view class="layer-progress-bar">
-                <view class="progress-inner low-cloud" style="width: {{activeSkyHourData.cloudLow}}%;"></view>
-              </view>
-              <text class="layer-pct">{{activeSkyHourData.cloudLow}}%</text>
-            </view>
-          </view>
         </view>
       </view>
     </view>
@@ -471,7 +437,7 @@
                   <view class="item-name-row">
                     <text class="item-name">{{item.name}}</text>
                   </view>
-                  <view class="item-desc">{{item.admin2 || item.admin1 || ''}} · {{item.latitude}}°N, {{item.longitude}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
+                  <view class="item-desc">{{item.admin2 || item.admin1 || ''}} · {{item.latitudeDisplay}}°N, {{item.longitudeDisplay}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
                 </view>
                 <view class="item-save-btn {{savedIdMap[item.id] ? 'saved' : ''}}" catchtap="handleToggleSave" data-loc="{{item}}">
                   <text wx:if="{{savedIdMap[item.id]}}">已收藏</text>
@@ -496,7 +462,7 @@
                   <view class="item-name-row">
                     <text class="item-name">{{item.name}}</text>
                   </view>
-                  <view class="item-desc">{{item.latitude}}°N, {{item.longitude}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
+                  <view class="item-desc">{{item.latitudeDisplay}}°N, {{item.longitudeDisplay}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
                 </view>
                 <view class="item-del-btn" catchtap="handleToggleSave" data-loc="{{item}}">
                   <view class="ic ic-trash"></view>

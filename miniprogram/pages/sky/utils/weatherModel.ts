@@ -18,6 +18,30 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function describeHikingHour(
+  h: {
+    hourNum: number;
+    precip: number;
+    precipProb: number;
+    temp: number;
+    apparentTemp?: number;
+    windSpeed: number;
+    gusts?: number;
+  },
+  score: number
+): string {
+  if (h.hourNum < 6 || h.hourNum > 19) return '夜间步道视线差，不建议徒步';
+  if (h.precip > 2 || h.precipProb > 70) return '降雨风险高，步道易湿滑';
+  if (h.precip > 0.5 || h.precipProb > 50) return '可能遇雨，出行宜带雨具';
+  const feels = h.apparentTemp ?? h.temp;
+  if (h.hourNum >= 11 && h.hourNum <= 14 && feels >= 31) return '正午热负荷高，宜缩短行程';
+  if (feels <= 6) return '体感偏冷，注意保暖防滑';
+  if (h.windSpeed > 30 || (h.gusts ?? 0) > 40) return '山脊风力偏大，注意防风';
+  if (score >= 75) return '体感舒适，适合出行';
+  if (score >= 55) return '条件尚可，酌情安排行程';
+  return '气象偏弱，建议缩短或改期';
+}
+
 function finiteValue(value: number | null | undefined): number | undefined {
   return typeof value === 'number' && isFinite(value) ? value : undefined;
 }
@@ -342,7 +366,7 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
       displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
       score: combined,
       cloudCover: h.cloudTotal,
-      detail: `${timeLabel} (低云${h.cloudLow}% 湿度${h.humidity}%)`,
+      detail: timeLabel,
       isMorningPeak: h.hourNum >= 5 && h.hourNum <= 8,
       baseScore,
     };
@@ -633,7 +657,7 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
     if (diffFromSunrise >= -25 && diffFromSunrise <= 30) {
       // Prime sunrise window: solar disk crossing the horizon
       timeWeight = 1.0;
-      timingLabel = Math.abs(diffFromSunrise) <= 15 ? '红日跃出地平黄金时段' : '破晓出升核心期';
+      timingLabel = Math.abs(diffFromSunrise) <= 15 ? '红日跃出黄金段' : '破晓出升核心期';
     } else if (diffFromSunrise < -25 && diffFromSunrise >= -75) {
       // Pre-dawn dawn glow & nautical twilight
       const ratio = (-25 - diffFromSunrise) / 50;
@@ -643,7 +667,7 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
       // Post-sunrise morning golden rays
       const ratio = (diffFromSunrise - 30) / 60;
       timeWeight = 0.70 - ratio * 0.35;
-      timingLabel = '旭日晨光初照时段';
+      timingLabel = '晨光初照时间期';
     }
 
     let hFinal = Math.round(hBase * timeWeight);
@@ -742,15 +766,12 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
     }
   ];
 
-  const hourlyScores = rawSunriseHourly.map(({ h, score: hScore, timeWeight, timingLabel }) => ({
+  const hourlyScores = rawSunriseHourly.map(({ h, score: hScore, timingLabel }) => ({
     hour: h.time,
     displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
     score: hScore,
     cloudCover: h.cloudTotal,
-    detail:
-      timeWeight >= 0.5
-        ? `${timingLabel} (低云${h.cloudLow}% 总云${h.cloudTotal}% 能见度${h.visibilityKm}km)`
-        : `${timingLabel} (日出在${sunriseHHMM})`,
+    detail: timingLabel,
   }));
 
   return {
@@ -1001,15 +1022,12 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
     }
   ];
 
-  const hourlyScores = rawSunsetHourly.map(({ h, score: hScore, timeWeight, timingLabel, hScreen }) => ({
+  const hourlyScores = rawSunsetHourly.map(({ h, score: hScore, timingLabel }) => ({
     hour: h.time,
     displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
     score: hScore,
     cloudCover: h.cloudTotal,
-    detail:
-      timeWeight >= 0.5
-        ? `${timingLabel} (低云${h.cloudLow}% 中高云${hScreen}%)`
-        : `${timingLabel} (日落在${sunsetHHMM})`,
+    detail: timingLabel,
   }));
 
   return {
@@ -1088,7 +1106,7 @@ function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
         displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
         score: 0,
         cloudCover: h.cloudTotal,
-        detail: '日间日光漫射 (无法观星)',
+        detail: '日间无法观星',
         moonlight,
       };
     }
@@ -1139,7 +1157,7 @@ function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
       displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
       score: hScore,
       cloudCover: h.cloudTotal,
-      detail: `${periodName} (云量${h.cloudTotal}% 湿度${h.humidity}% · ${moonlight.note})`,
+      detail: periodName,
       moonlight,
     };
   });
@@ -1584,9 +1602,7 @@ export function evaluateTravelWeather(
       displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
       score: hScore,
       cloudCover: h.cloudTotal,
-      detail: `${Math.round(h.apparentTemp ?? h.temp)}℃体感 · ${h.precipProb}%雨率 · ${
-        h.gusts === undefined ? `${Math.round(h.windSpeed)}km/h风` : `${Math.round(h.gusts)}km/h阵风`
-      }`,
+      detail: describeHikingHour(h, hScore),
       isDaytime: h.hourNum >= 7 && h.hourNum <= 18,
     };
   });

@@ -195,7 +195,7 @@ test('阵风与垂直层结数据实际改变云海评分', () => {
   assert.ok(gusty < calm, `强阵风应压低云海分: ${gusty} vs ${calm}`);
 });
 
-test('星空逐时说明月亮高度或地平线状态', () => {
+test('星空逐时说明只保留时段评价，数据不挤进走势文案', () => {
   const nightHours = evaluateForecast(makeWeather())[0].predictions.starry_sky.hourlyScores.filter(
     (hour) => {
       const hourNum = Number(hour.displayHour.slice(0, 2));
@@ -205,13 +205,26 @@ test('星空逐时说明月亮高度或地平线状态', () => {
 
   assert.ok(nightHours.length > 0);
   for (const hour of nightHours) {
+    assert.equal(hour.detail.includes('%'), false, `走势评价不应夹带百分比: ${hour.detail}`);
     assert.ok(
-      hour.detail.includes('月亮位于地平线以下') || hour.detail.includes('月亮高度约'),
-      `缺少逐时月亮说明: ${hour.detail}`
+      hour.detail.includes('天文') || hour.detail.includes('暮光') || hour.detail.includes('航海'),
+      `缺少时段评价: ${hour.detail}`
     );
   }
-  // 同一晚不同小时的月亮状态应当有变化，而不是整夜套用同一个月相结论
   assert.ok(new Set(nightHours.map((hour) => hour.detail)).size > 1);
+});
+
+test('各景象小时走势评价是一句描述，不含逐时裸数据', () => {
+  const day = evaluateForecast(makeWeather())[0];
+  for (const prediction of Object.values(day.predictions)) {
+    for (const hour of prediction.hourlyScores) {
+      assert.equal(
+        /%|km\/h|℃体感/.test(hour.detail),
+        false,
+        `${prediction.id} ${hour.displayHour}: ${hour.detail}`
+      );
+    }
+  }
 });
 
 test('海拔为 0 显示 0 米，海拔缺失才显示未标定且不做层结加分', () => {

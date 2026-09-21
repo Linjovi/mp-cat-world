@@ -30,6 +30,19 @@ Component({
     }
   },
   methods: {
+    onShareAppMessage() {
+      return {
+        title: '出游助手：徒步 · 云海 · 日出晚霞预报',
+        path: '/pages/index/index'
+      };
+    },
+
+    onShareTimeline() {
+      return {
+        title: '出游助手：徒步 · 云海 · 日出晚霞预报'
+      };
+    },
+
     onAppSelect(e: WechatMiniprogram.TouchEvent) {
       const url = e.currentTarget.dataset.url;
       if (url) {

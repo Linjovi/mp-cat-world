@@ -15,7 +15,61 @@ import {
   removeSavedLocation,
 } from './utils/locations';
 import { fetchSkyForecastBundle, searchLocations, getCurrentCoordinates } from './utils/api';
+import { withCoordinateDisplay } from './utils/coordinateDisplay';
 import { evaluateForecast } from './utils/weatherModel';
+import { decorateSkyHour, getSkyInsightMeta } from './utils/skyDeepDive';
+
+function displayLocations(list: LocationItem[]) {
+  return list.map(withCoordinateDisplay);
+}
+
+function localDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`;
+}
+
+/** 今日默认选中当前时刻（逐时列表可能不含全部 24 小时，取最接近的一项），其他日期仍取评分最高的小时 */
+function resolveDefaultHourIndex(
+  hourlyScores: { displayHour: string; score: number }[] | undefined,
+  dayDate: string
+): number {
+  if (!hourlyScores || hourlyScores.length === 0) return 0;
+
+  const now = new Date();
+  if (dayDate === localDateStr(now)) {
+    const currentHour = now.getHours();
+    let nearestIdx = -1;
+    let minDiff = Infinity;
+    hourlyScores.forEach((h, idx) => {
+      const hourNum = parseInt(h.displayHour.split(':')[0], 10);
+      if (isNaN(hourNum)) return;
+      const diff = Math.abs(hourNum - currentHour);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearestIdx = idx;
+      }
+    });
+    if (nearestIdx >= 0) return nearestIdx;
+  }
+
+  let peakIdx = 0;
+  let maxScore = -1;
+  hourlyScores.forEach((h, idx) => {
+    if (h.score > maxScore) {
+      maxScore = h.score;
+      peakIdx = idx;
+    }
+  });
+  return peakIdx;
+}
+
+/** 深入剖析与 24H 走势共用同一个小时，按显示时刻对齐两份逐时数据 */
+function matchSkyHour(skyHoursList: any[], activeHourData: { displayHour: string } | null): any {
+  if (!activeHourData || skyHoursList.length === 0) return null;
+  const hourNum = parseInt(activeHourData.displayHour.split(':')[0], 10);
+  return skyHoursList.find((item) => item.hourNum === hourNum) || null;
+}
 
 Page({
   data: {
@@ -24,7 +78,7 @@ Page({
     navBarHeight: 44,
 
     // Core forecasting data
-    currentLocation: PRESET_LOCATIONS[0] as LocationItem,
+    currentLocation: withCoordinateDisplay(PRESET_LOCATIONS[0]),
     evaluations: [] as DailyForecastEvaluation[],
     rawApiData: null as WeatherApiResponse | null,
     airQualityData: null as AirQualityApiResponse | null,
@@ -36,6 +90,7 @@ Page({
     currentPrediction: null as PhenomenonPrediction | null,
     activeHourIndex: 0,
     activeHourData: null as any,
+    hourScrollIntoView: '',
 
     // UI state
     isLoading: true,
@@ -44,10 +99,13 @@ Page({
     showTips: false,
     showSkyTimeline: false,
 
-    // Sky timeline state
+    // Deep dive state (hour is shared with the 24H trend bar)
     skyHoursList: [] as any[],
-    selectedSkyHourIdx: 0,
     activeSkyHourData: null as any,
+    skyInsight: {
+      title: '24 小时体感与出行条件剖析',
+      subtitle: '降水、体感温湿、风力与能见度逐时对照',
+    },
 
     // Location Modal state
     isLocationModalOpen: false,
@@ -93,14 +151,29 @@ Page({
     const initialPresets = PRESET_LOCATIONS.filter((p) => p.category === 'hangzhou');
 
     this.setData({
-      currentLocation: lastLoc,
-      savedLocs: saved,
+      currentLocation: withCoordinateDisplay(lastLoc),
+      savedLocs: displayLocations(saved),
       savedIdMap: this.buildSavedIdMap(saved),
-      filteredPresets: initialPresets,
+      filteredPresets: displayLocations(initialPresets),
     });
 
     // 3. Load forecast
     this.loadForecast(lastLoc);
+  },
+
+  onShareAppMessage() {
+    const locName = this.data.currentLocation?.name || '';
+    return {
+      title: locName ? `${locName} 的徒步 · 云海 · 日出晚霞预报` : '出游助手：徒步 · 云海 · 日出晚霞预报',
+      path: '/pages/sky/index',
+    };
+  },
+
+  onShareTimeline() {
+    const locName = this.data.currentLocation?.name || '';
+    return {
+      title: locName ? `${locName} 的徒步 · 云海 · 日出晚霞预报` : '出游助手：徒步 · 云海 · 日出晚霞预报',
+    };
   },
 
   handleBack() {
@@ -134,7 +207,7 @@ Page({
           airQualityData: airQuality,
           evaluations: evals,
           selectedDayIdx: 0,
-          currentLocation: loc,
+          currentLocation: withCoordinateDisplay(loc),
           isLoading: false,
         },
         () => {
@@ -162,21 +235,12 @@ Page({
     const day = evaluations[selectedDayIdx] || evaluations[0];
     const prediction = day.predictions[activeTab] || day.predictions.travel_weather;
 
-    // Default active hour is peak score hour
-    let peakIdx = 0;
-    let maxScore = -1;
-    if (prediction.hourlyScores && prediction.hourlyScores.length > 0) {
-      prediction.hourlyScores.forEach((h, idx) => {
-        if (h.score > maxScore) {
-          maxScore = h.score;
-          peakIdx = idx;
-        }
-      });
-    }
-
-    const activeHourData = prediction.hourlyScores?.[peakIdx] || null;
+    // Default active hour: current hour for today, peak score hour otherwise
+    const defaultHourIdx = resolveDefaultHourIndex(prediction.hourlyScores, day.date);
+    const activeHourData = prediction.hourlyScores?.[defaultHourIdx] || null;
 
     // Prepare sky timeline hours for the target day
+    const skyInsight = getSkyInsightMeta(activeTab);
     let skyHoursList: any[] = [];
     if (rawApiData && rawApiData.hourly) {
       const hourly = rawApiData.hourly;
@@ -184,48 +248,43 @@ Page({
         const t = hourly.time[i];
         if (t.startsWith(day.date)) {
           const hourStr = t.split('T')[1]?.substring(0, 5) || '';
-          skyHoursList.push({
-            timeStr: hourStr,
-            fullTime: t,
-            hourNum: parseInt(hourStr.split(':')[0], 10),
-            temp: Math.round(hourly.temperature_2m[i] ?? 0),
-            humidity: Math.round(hourly.relative_humidity_2m[i] ?? 0),
-            windSpeed: Math.round(hourly.wind_speed_10m[i] ?? 0),
-            visibilityKm: Math.round((hourly.visibility[i] ?? 10000) / 1000),
-            cloudLow: Math.round(hourly.cloud_cover_low[i] ?? 0),
-            cloudMid: Math.round(hourly.cloud_cover_mid[i] ?? 0),
-            cloudHigh: Math.round(hourly.cloud_cover_high[i] ?? 0),
-            cloudTotal: Math.round(hourly.cloud_cover[i] ?? 0),
-            precipProb: Math.round(hourly.precipitation_probability?.[i] ?? 0),
-          });
+          skyHoursList.push(
+            decorateSkyHour(activeTab, {
+              timeStr: hourStr,
+              fullTime: t,
+              hourNum: parseInt(hourStr.split(':')[0], 10),
+              temp: Math.round(hourly.temperature_2m[i] ?? 0),
+              humidity: Math.round(hourly.relative_humidity_2m[i] ?? 0),
+              windSpeed: Math.round(hourly.wind_speed_10m[i] ?? 0),
+              visibilityKm: Math.round((hourly.visibility[i] ?? 10000) / 1000),
+              cloudLow: Math.round(hourly.cloud_cover_low[i] ?? 0),
+              cloudMid: Math.round(hourly.cloud_cover_mid[i] ?? 0),
+              cloudHigh: Math.round(hourly.cloud_cover_high[i] ?? 0),
+              cloudTotal: Math.round(hourly.cloud_cover[i] ?? 0),
+              precipProb: Math.round(hourly.precipitation_probability?.[i] ?? 0),
+              apparentTemp:
+                hourly.apparent_temperature?.[i] === undefined
+                  ? undefined
+                  : Math.round(hourly.apparent_temperature[i] as number),
+              gusts:
+                hourly.wind_gusts_10m?.[i] == null
+                  ? undefined
+                  : Math.round(hourly.wind_gusts_10m[i] as number),
+            })
+          );
         }
       }
     }
 
-    // Default sky hour index
-    let defaultSkyIdx = 8;
-    if (activeTab === 'travel_weather') {
-      const idx = skyHoursList.findIndex((h) => h.hourNum === 10);
-      defaultSkyIdx = idx !== -1 ? idx : 10;
-    } else if (activeTab === 'sunrise' || activeTab === 'cloud_sea') {
-      const srH = parseInt(day.sunrise.split(':')[0], 10);
-      const idx = skyHoursList.findIndex((h) => h.hourNum === srH);
-      defaultSkyIdx = idx !== -1 ? idx : 6;
-    } else if (activeTab === 'sunset_glow') {
-      const ssH = parseInt(day.sunset.split(':')[0], 10);
-      const idx = skyHoursList.findIndex((h) => h.hourNum === ssH);
-      defaultSkyIdx = idx !== -1 ? idx : 18;
-    }
-    defaultSkyIdx = Math.max(0, Math.min(skyHoursList.length - 1, defaultSkyIdx));
-
     this.setData({
       currentDay: day,
       currentPrediction: prediction,
-      activeHourIndex: peakIdx,
+      activeHourIndex: defaultHourIdx,
       activeHourData,
+      hourScrollIntoView: activeHourData ? `hour-bar-${defaultHourIdx}` : '',
       skyHoursList,
-      selectedSkyHourIdx: defaultSkyIdx,
-      activeSkyHourData: skyHoursList[defaultSkyIdx] || null,
+      activeSkyHourData: matchSkyHour(skyHoursList, activeHourData),
+      skyInsight,
     });
   },
 
@@ -251,9 +310,11 @@ Page({
     const idx = Number(e.currentTarget.dataset.index);
     const prediction = this.data.currentPrediction;
     if (prediction && prediction.hourlyScores && prediction.hourlyScores[idx]) {
+      const activeHourData = prediction.hourlyScores[idx];
       this.setData({
         activeHourIndex: idx,
-        activeHourData: prediction.hourlyScores[idx],
+        activeHourData,
+        activeSkyHourData: matchSkyHour(this.data.skyHoursList, activeHourData),
       });
     }
   },
@@ -268,17 +329,6 @@ Page({
     this.setData({
       showSkyTimeline: !this.data.showSkyTimeline,
     });
-  },
-
-  handleSelectSkyHour(e: WechatMiniprogram.TouchEvent) {
-    const idx = Number(e.currentTarget.dataset.index);
-    const item = this.data.skyHoursList[idx];
-    if (item) {
-      this.setData({
-        selectedSkyHourIdx: idx,
-        activeSkyHourData: item,
-      });
-    }
   },
 
   async handleLocateUser() {
@@ -319,11 +369,13 @@ Page({
     const saved = getSavedLocations();
     this.setData({
       isLocationModalOpen: true,
-      savedLocs: saved,
+      savedLocs: displayLocations(saved),
       savedIdMap: this.buildSavedIdMap(saved),
       searchQuery: '',
       searchResults: [],
-      filteredPresets: PRESET_LOCATIONS.filter((p) => p.category === this.data.presetCategory),
+      filteredPresets: displayLocations(
+        PRESET_LOCATIONS.filter((p) => p.category === this.data.presetCategory)
+      ),
     });
   },
 
@@ -353,7 +405,7 @@ Page({
     const cat = this.data.presetCategory;
     if (!q) {
       this.setData({
-        filteredPresets: PRESET_LOCATIONS.filter((p) => p.category === cat),
+        filteredPresets: displayLocations(PRESET_LOCATIONS.filter((p) => p.category === cat)),
       });
       return;
     }
@@ -375,7 +427,7 @@ Page({
     );
 
     this.setData({
-      filteredPresets: local.concat(remote),
+      filteredPresets: displayLocations(local.concat(remote)),
     });
   },
 
@@ -402,7 +454,7 @@ Page({
     }
     const nextSaved = getSavedLocations();
     this.setData({
-      savedLocs: nextSaved,
+      savedLocs: displayLocations(nextSaved),
       savedIdMap: this.buildSavedIdMap(nextSaved),
     });
   },
@@ -426,7 +478,7 @@ Page({
     try {
       const res = await searchLocations(q);
       this.setData({
-        searchResults: res,
+        searchResults: displayLocations(res),
         isSearching: false,
       });
       this.refreshPlaceList();

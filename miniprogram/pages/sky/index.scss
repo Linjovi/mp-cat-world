@@ -751,7 +751,7 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
       }
       .tag-desc {
         color: #475569;
-        max-width: 220rpx;
+        max-width: 440rpx;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -783,7 +783,10 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
       .factor-name-row {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 8rpx;
+        flex: 1;
+        min-width: 0;
 
         .factor-weight {
           font-size: 18rpx;
@@ -798,6 +801,9 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
           font-size: 24rpx;
           font-weight: 700;
           color: #1E293B;
+          line-height: 1.4;
+          white-space: normal;
+          word-break: break-word;
         }
       }
 
@@ -809,6 +815,8 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
         display: flex;
         align-items: center;
         gap: 8rpx;
+        flex-shrink: 0;
+        white-space: nowrap;
 
         .status-dot {
           width: 10rpx;
@@ -839,25 +847,33 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
 
     .factor-bottom {
       display: flex;
-      align-items: center;
+      flex-wrap: wrap;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 12rpx;
+      gap: 6rpx 12rpx;
 
       .factor-val {
         font-size: 26rpx;
         font-weight: 800;
         font-family: monospace;
         color: #0F172A;
+        line-height: 1.4;
+        max-width: 100%;
+        white-space: normal;
+        word-break: break-word;
       }
 
+      /* 基准宽度取整段文案的单行宽度：能和数值并排就右侧同行显示，
+         放不下时整段折到下一行，占满宽度并左对齐 */
       .factor-hint {
         font-size: 22rpx;
         color: #64748B;
-        text-align: right;
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        text-align: left;
+        flex: 0 1 auto;
+        min-width: 0;
+        line-height: 1.4;
+        white-space: normal;
+        word-break: break-word;
       }
     }
   }
@@ -1036,40 +1052,17 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
     }
   }
 
-  .sky-timeline-body {
+  .trend-deep-dive {
     margin-top: 20rpx;
     padding-top: 18rpx;
     border-top: 1rpx solid #F1F5F9;
+  }
+
+  .sky-timeline-body {
+    margin-top: 16rpx;
     display: flex;
     flex-direction: column;
     gap: 16rpx;
-
-    .sky-hour-scroll {
-      width: 100%;
-      white-space: nowrap;
-
-      .sky-hour-list {
-        display: flex;
-        gap: 10rpx;
-        padding-bottom: 6rpx;
-
-        .sky-hour-chip {
-          flex-shrink: 0;
-          font-size: 22rpx;
-          font-family: monospace;
-          padding: 8rpx 18rpx;
-          border-radius: 14rpx;
-          background: #F1F5F9;
-          color: #475569;
-          font-weight: 600;
-
-          &.selected {
-            background: #0284C7;
-            color: #FFFFFF;
-          }
-        }
-      }
-    }
 
     .sky-hour-detail {
       background: #F8FAFC;
@@ -1106,6 +1099,12 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
         }
       }
 
+      .sky-hour-readout {
+        font-size: 22rpx;
+        color: #475569;
+        line-height: 1.5;
+      }
+
       .cloud-bars-container {
         display: flex;
         flex-direction: column;
@@ -1120,7 +1119,8 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
           .layer-title {
             font-size: 22rpx;
             color: #334155;
-            width: 240rpx;
+            width: 280rpx;
+            flex-shrink: 0;
           }
 
           .layer-progress-bar {
@@ -1142,6 +1142,12 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
               }
               &.low-cloud {
                 background: #0284C7;
+              }
+              &.precip {
+                background: #0D9488;
+              }
+              &.humidity {
+                background: #6366F1;
               }
             }
           }
