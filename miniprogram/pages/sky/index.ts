@@ -13,8 +13,16 @@ import {
   getSavedLocations,
   saveLocation,
   removeSavedLocation,
+  searchOfflineLocations,
+  getMapHistory,
+  rememberMapLocation,
+  isSameLocation,
 } from './utils/locations';
-import { fetchSkyForecastBundle, searchLocations, getCurrentCoordinates } from './utils/api';
+import {
+  fetchSkyForecastBundle,
+  getCurrentCoordinates,
+  chooseLocationOnMap,
+} from './utils/api';
 import { withCoordinateDisplay } from './utils/coordinateDisplay';
 import { evaluateForecast } from './utils/weatherModel';
 import { decorateSkyHour, getSkyInsightMeta } from './utils/skyDeepDive';
@@ -95,6 +103,7 @@ Page({
     // UI state
     isLoading: true,
     isLocating: false,
+    isPickingOnMap: false,
     errorMsg: null as string | null,
     showTips: false,
     showSkyTimeline: false,
@@ -113,8 +122,8 @@ Page({
     presetCategory: 'hangzhou' as 'hangzhou' | 'zhejiang' | 'national',
     filteredPresets: [] as LocationItem[],
     searchQuery: '',
-    searchResults: [] as LocationItem[],
-    isSearching: false,
+    hasSearchQuery: false,
+    mapHistory: [] as LocationItem[],
     savedLocs: [] as LocationItem[],
     savedIdMap: {} as Record<string, boolean>,
     customName: '',
@@ -355,12 +364,47 @@ Page({
     }
   },
 
+  async handleChooseOnMap() {
+    if (this.data.isPickingOnMap) return;
+    this.setData({ isPickingOnMap: true });
+    try {
+      const picked = await chooseLocationOnMap();
+      if (!picked) return;
+
+      const loc: LocationItem = {
+        id: `map_${Date.now()}`,
+        name: picked.name || picked.address || '地图选点',
+        admin1: picked.address || '地图选点',
+        latitude: picked.latitude,
+        longitude: picked.longitude,
+        isCustom: true,
+        category: 'custom',
+      };
+      const remembered = rememberMapLocation(loc);
+      this.setData({ mapHistory: displayLocations(getMapHistory()) });
+      this.closeLocationModal();
+      this.loadForecast(remembered);
+    } catch (err: any) {
+      wx.showToast({
+        title: err.message || '地图选点失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ isPickingOnMap: false });
+    }
+  },
+
   // ================= Location Modal Handlers =================
 
   buildSavedIdMap(list: LocationItem[]) {
     const map: Record<string, boolean> = {};
     list.forEach((item) => {
       map[item.id] = true;
+    });
+    getMapHistory().forEach((item) => {
+      if (list.some((saved) => isSameLocation(saved, item))) {
+        map[item.id] = true;
+      }
     });
     return map;
   },
@@ -372,7 +416,8 @@ Page({
       savedLocs: displayLocations(saved),
       savedIdMap: this.buildSavedIdMap(saved),
       searchQuery: '',
-      searchResults: [],
+      hasSearchQuery: false,
+      mapHistory: displayLocations(getMapHistory()),
       filteredPresets: displayLocations(
         PRESET_LOCATIONS.filter((p) => p.category === this.data.presetCategory)
       ),
@@ -395,7 +440,7 @@ Page({
     this.setData({
       presetCategory: cat,
       searchQuery: '',
-      searchResults: [],
+      hasSearchQuery: false,
     });
     this.refreshPlaceList();
   },
@@ -405,29 +450,17 @@ Page({
     const cat = this.data.presetCategory;
     if (!q) {
       this.setData({
+        hasSearchQuery: false,
         filteredPresets: displayLocations(PRESET_LOCATIONS.filter((p) => p.category === cat)),
       });
       return;
     }
 
-    const local = PRESET_LOCATIONS.filter((p) => {
-      const haystack = [p.name, p.admin1, p.admin2, p.country]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.indexOf(q) !== -1;
-    });
-
-    const remote = this.data.searchResults.filter((r) =>
-      !local.some(
-        (l) =>
-          l.id === r.id ||
-          (Math.abs(l.latitude - r.latitude) < 0.01 && Math.abs(l.longitude - r.longitude) < 0.01)
-      )
-    );
-
     this.setData({
-      filteredPresets: displayLocations(local.concat(remote)),
+      hasSearchQuery: true,
+      filteredPresets: displayLocations(
+        searchOfflineLocations(q, getMapHistory().concat(getSavedLocations()))
+      ),
     });
   },
 
@@ -443,10 +476,11 @@ Page({
     const loc = e.currentTarget.dataset.loc as LocationItem;
     if (!loc) return;
     const saved = getSavedLocations();
-    const isSaved = saved.some((x) => x.id === loc.id);
+    const isSaved = saved.some((x) => isSameLocation(x, loc));
 
     if (isSaved) {
-      removeSavedLocation(loc.id);
+      const match = saved.find((x) => isSameLocation(x, loc));
+      removeSavedLocation(match ? match.id : loc.id);
       wx.showToast({ title: '已取消收藏', icon: 'none' });
     } else {
       saveLocation(loc);
@@ -460,34 +494,21 @@ Page({
   },
 
   handleSearchInput(e: WechatMiniprogram.CustomEvent) {
-    this.setData({
-      searchQuery: e.detail.value,
-      searchResults: e.detail.value ? this.data.searchResults : [],
-    });
+    this.setData({ searchQuery: e.detail.value });
     this.refreshPlaceList();
   },
 
-  async handleSearch() {
+  handleSearchConfirm() {
+    this.refreshPlaceList();
     const q = this.data.searchQuery.trim();
-    if (!q) {
-      this.setData({ searchResults: [] });
-      this.refreshPlaceList();
-      return;
-    }
-    this.setData({ isSearching: true });
-    try {
-      const res = await searchLocations(q);
-      this.setData({
-        searchResults: displayLocations(res),
-        isSearching: false,
+    if (
+      q &&
+      searchOfflineLocations(q, getMapHistory().concat(getSavedLocations())).length === 0
+    ) {
+      wx.showToast({
+        title: '没有找到该地点，请使用地图选点',
+        icon: 'none',
       });
-      this.refreshPlaceList();
-      if (this.data.filteredPresets.length === 0) {
-        wx.showToast({ title: '未找到匹配地点，请尝试其他关键词', icon: 'none' });
-      }
-    } catch (err: any) {
-      this.setData({ isSearching: false });
-      wx.showToast({ title: err.message || '检索繁忙，请稍后', icon: 'none' });
     }
   },
 

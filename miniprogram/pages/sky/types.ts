@@ -7,6 +7,7 @@ export interface LocationItem {
   latitude: number;
   longitude: number;
   elevation?: number;
+  keywords?: string[];
   isCustom?: boolean;
   category?: 'hangzhou' | 'zhejiang' | 'national' | 'custom' | 'mountain' | 'starry' | 'coastal' | 'city';
 }

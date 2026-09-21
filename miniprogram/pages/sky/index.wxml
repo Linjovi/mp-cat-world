@@ -34,6 +34,10 @@
         <view class="ic ic-locate action-icon"></view>
         <text class="action-text">{{isLocating ? '定位中' : '定位'}}</text>
       </view>
+      <view class="action-btn {{isPickingOnMap ? 'loading' : ''}}" bindtap="handleChooseOnMap">
+        <view class="ic ic-map action-icon"></view>
+        <text class="action-text">地图选点</text>
+      </view>
       <view class="action-btn" bindtap="openGuideModal">
         <view class="ic ic-book action-icon"></view>
         <text class="action-text">指南</text>
@@ -394,17 +398,14 @@
         <view class="search-input-row">
           <input
             class="search-input"
-            placeholder="搜索城市或山名，如 宝石山、黄山..."
+            placeholder="搜索离线景点、城市或别名"
             value="{{searchQuery}}"
             bindinput="handleSearchInput"
-            bindconfirm="handleSearch"
+            bindconfirm="handleSearchConfirm"
           />
-          <view class="search-btn {{isSearching ? 'loading' : ''}}" bindtap="handleSearch">
-            {{isSearching ? '检索中' : '搜索'}}
-          </view>
         </view>
 
-        <view wx:if="{{!searchQuery}}" class="preset-categories">
+        <view wx:if="{{!hasSearchQuery}}" class="preset-categories">
           <view
             class="cat-chip {{presetCategory === 'hangzhou' ? 'active' : ''}}"
             bindtap="switchPresetCategory"
@@ -414,7 +415,7 @@
             class="cat-chip {{presetCategory === 'zhejiang' ? 'active' : ''}}"
             bindtap="switchPresetCategory"
             data-category="zhejiang"
-          >浙江名山</view>
+          >浙江及周边</view>
           <view
             class="cat-chip {{presetCategory === 'national' ? 'active' : ''}}"
             bindtap="switchPresetCategory"
@@ -423,8 +424,33 @@
         </view>
 
         <scroll-view class="location-list-scroll" scroll-y="true">
-          <view wx:if="{{filteredPresets.length === 0}}" class="empty-list-tip">
-            {{searchQuery ? '未找到匹配地点，可点搜索查找更多' : '暂无预设地点'}}
+          <view wx:if="{{filteredPresets.length === 0 && (hasSearchQuery || !mapHistory.length)}}" class="empty-list-tip">
+            <text>{{hasSearchQuery ? '没有找到匹配地点，请使用地图选点' : '暂无预设地点'}}</text>
+            <view wx:if="{{hasSearchQuery}}" class="map-fallback-btn" bindtap="handleChooseOnMap">
+              <view class="ic ic-map"></view>
+              <text>使用地图选点</text>
+            </view>
+          </view>
+          <view wx:if="{{!hasSearchQuery && mapHistory.length}}" class="loc-list">
+            <view class="recent-label">最近选点</view>
+            <block wx:for="{{mapHistory}}" wx:key="id">
+              <view
+                class="loc-list-item {{currentLocation.id === item.id ? 'current' : ''}}"
+                bindtap="handleSelectLocation"
+                data-loc="{{item}}"
+              >
+                <view class="item-info">
+                  <view class="item-name-row">
+                    <text class="item-name">{{item.name}}</text>
+                  </view>
+                  <view class="item-desc">{{item.admin2 || item.admin1 || ''}} · {{item.latitudeDisplay}}°N, {{item.longitudeDisplay}}°E<text wx:if="{{item.elevation !== undefined}}"> · {{item.elevation}}m</text></view>
+                </view>
+                <view class="item-save-btn {{savedIdMap[item.id] ? 'saved' : ''}}" catchtap="handleToggleSave" data-loc="{{item}}">
+                  <text wx:if="{{savedIdMap[item.id]}}">已收藏</text>
+                  <text wx:else>收藏</text>
+                </view>
+              </view>
+            </block>
           </view>
           <view class="loc-list">
             <block wx:for="{{filteredPresets}}" wx:key="id">

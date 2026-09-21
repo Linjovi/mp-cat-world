@@ -6,6 +6,7 @@ import {
   buildAirQualityForecastUrl,
   isUsableAirQualityResponse,
   normalizeElevation,
+  parseMapCoordinate,
 } from './api.ts';
 
 const HANGZHOU = { latitude: 30.2741, longitude: 120.1551 };
@@ -186,4 +187,9 @@ test('URL 构造为纯函数：同输入同输出', () => {
     buildAirQualityForecastUrl(HANGZHOU.latitude, HANGZHOU.longitude),
     buildAirQualityForecastUrl(HANGZHOU.latitude, HANGZHOU.longitude)
   );
+});
+
+test('地图选点坐标：兼容微信类型定义中的字符串坐标', () => {
+  assert.equal(parseMapCoordinate('30.2624'), 30.2624);
+  assert.equal(parseMapCoordinate(120.1414), 120.1414);
 });

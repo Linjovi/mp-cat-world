@@ -23,7 +23,8 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
   "requiredPrivateInfos": [
-    "getLocation"
+    "getLocation",
+    "chooseLocation"
   ],
   "permission": {
     "scope.userLocation": {

@@ -26,6 +26,7 @@ $c-white: "%23FFFFFF";
 $i-pin: "%3Cpath d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E";
 $i-swap: "%3Cpath d='M8 3 4 7l4 4'/%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='m16 21 4-4-4-4'/%3E%3Cpath d='M20 17H4'/%3E";
 $i-locate: "%3Cline x1='2' x2='5' y1='12' y2='12'/%3E%3Cline x1='19' x2='22' y1='12' y2='12'/%3E%3Cline x1='12' x2='12' y1='2' y2='5'/%3E%3Cline x1='12' x2='12' y1='19' y2='22'/%3E%3Ccircle cx='12' cy='12' r='7'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E";
+$i-map: "%3Cpolygon points='1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6'/%3E%3Cline x1='8' x2='8' y1='2' y2='18'/%3E%3Cline x1='16' x2='16' y1='6' y2='22'/%3E";
 $i-book: "%3Cpath d='M12 7v14'/%3E%3Cpath d='M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z'/%3E";
 $i-refresh: "%3Cpath d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3Cpath d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16'/%3E%3Cpath d='M8 16H3v5'/%3E";
 $i-alert: "%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E";
@@ -63,6 +64,7 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
 .ic-pin { background-image: icon($i-pin, $c-rose); }
 .ic-swap { background-image: icon($i-swap, "%230369A1"); }
 .ic-locate { background-image: icon($i-locate, $c-sky); }
+.ic-map { background-image: icon($i-map, $c-amber); }
 .ic-book { background-image: icon($i-book, $c-violet); }
 .ic-book-ink { background-image: icon($i-book, "%230F172A"); }
 .ic-refresh { background-image: icon($i-refresh, $c-emerald); }
@@ -1407,7 +1409,6 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
 
       .search-input-row {
         display: flex;
-        gap: 16rpx;
 
         .search-input {
           flex: 1;
@@ -1416,22 +1417,6 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
           padding: 16rpx 20rpx;
           font-size: 26rpx;
           color: #0F172A;
-        }
-
-        .search-btn {
-          background: #0284C7;
-          color: #FFFFFF;
-          font-size: 26rpx;
-          font-weight: 600;
-          padding: 0 28rpx;
-          border-radius: 18rpx;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          &.loading {
-            opacity: 0.6;
-          }
         }
       }
 
@@ -1445,6 +1430,30 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
           color: #94A3B8;
           font-size: 24rpx;
           line-height: 1.5;
+
+          .map-fallback-btn {
+            margin: 24rpx auto 0;
+            padding: 14rpx 24rpx;
+            border-radius: 16rpx;
+            background: #E0F2FE;
+            color: #0369A1;
+            display: inline-flex;
+            align-items: center;
+            gap: 10rpx;
+            font-weight: 600;
+
+            .ic {
+              width: 26rpx;
+              height: 26rpx;
+            }
+          }
+        }
+
+        .recent-label {
+          padding: 8rpx 4rpx 4rpx;
+          color: #64748B;
+          font-size: 22rpx;
+          font-weight: 600;
         }
 
         .loc-list {

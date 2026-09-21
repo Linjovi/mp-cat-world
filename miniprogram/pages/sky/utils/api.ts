@@ -1,6 +1,5 @@
 import type {
   AirQualityApiResponse,
-  LocationItem,
   SkyForecastBundle,
   WeatherApiResponse,
 } from '../types';
@@ -190,68 +189,57 @@ export function fetchSkyForecastBundle(
   }));
 }
 
-interface GeocodingResult {
-  id: number;
+export interface MapPickedLocation {
   name: string;
+  address: string;
   latitude: number;
   longitude: number;
-  elevation?: number;
-  country?: string;
-  admin1?: string;
-  admin2?: string;
+}
+
+export function parseMapCoordinate(value: number | string): number {
+  return typeof value === 'number' ? value : Number(value);
 }
 
 /**
- * Search locations using Open-Meteo Geocoding API (free, supports Chinese & global locations)
+ * Pick a spot on the built-in WeChat map. Covers far more scenic spots than the
+ * geocoding search and needs no third-party map key. Resolves null when cancelled.
  */
-export async function searchLocations(query: string): Promise<LocationItem[]> {
-  const trimmed = query.trim();
-  if (!trimmed) return [];
-
-  const requestGeocoding = (lang: string): Promise<GeocodingResult[]> => {
-    return new Promise((resolve) => {
-      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-        trimmed
-      )}&count=10&language=${lang}&format=json`;
-
-      wx.request({
-        url,
-        method: 'GET',
-        timeout: 10000,
-        success: (res) => {
-          if (res.statusCode === 200 && res.data) {
-            const data = res.data as { results?: GeocodingResult[] };
-            resolve(data.results || []);
-          } else {
-            resolve([]);
-          }
-        },
-        fail: () => {
-          resolve([]);
-        },
-      });
+export function chooseLocationOnMap(): Promise<MapPickedLocation | null> {
+  return new Promise((resolve, reject) => {
+    wx.chooseLocation({
+      success: (res) => {
+        resolve({
+          name: res.name,
+          address: res.address,
+          latitude: parseMapCoordinate(res.latitude),
+          longitude: parseMapCoordinate(res.longitude),
+        });
+      },
+      fail: (err) => {
+        const errMsg = err.errMsg || '';
+        if (errMsg.indexOf('cancel') !== -1) {
+          resolve(null);
+          return;
+        }
+        if (errMsg.indexOf('auth deny') !== -1 || errMsg.indexOf('auth denied') !== -1) {
+          wx.showModal({
+            title: '需要定位权限',
+            content: '请在小程序设置中允许“使用我的地理位置”，才能在地图上选择观景地点',
+            confirmText: '去设置',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                wx.openSetting();
+              }
+            },
+          });
+          reject(new Error('定位权限未开启'));
+          return;
+        }
+        console.warn('wx.chooseLocation failed:', err);
+        reject(new Error(errMsg || '地图选点失败，请稍后重试'));
+      },
     });
-  };
-
-  // Try Chinese first
-  let results = await requestGeocoding('zh');
-
-  // Fallback to English if no results found
-  if (results.length === 0) {
-    results = await requestGeocoding('en');
-  }
-
-  return results.map((item) => ({
-    id: `geo_${item.id}`,
-    name: item.name,
-    admin1: item.admin1,
-    admin2: item.admin2,
-    country: item.country,
-    latitude: item.latitude,
-    longitude: item.longitude,
-    elevation: normalizeElevation(item.elevation),
-    isCustom: true,
-  }));
+  });
 }
 
 /**
