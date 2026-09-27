@@ -1,0 +1,27 @@
+<view wx:if="{{visible}}" class="timer-bar {{alarm ? 'alarm' : ''}}" style="top: {{offsetTop + 8}}px;">
+  <view class="timer-main">
+    <view class="timer-icon">
+      <view class="ic {{alarm ? 'ic-bell-white' : 'ic-clock-white'}}"></view>
+    </view>
+    <view class="timer-copy">
+      <text class="timer-title">{{title}}</text>
+      <text class="timer-clock">{{clock}}</text>
+    </view>
+  </view>
+  <view class="timer-actions">
+    <view wx:if="{{alarm}}" class="timer-dismiss" bindtap="onDismiss">知道了</view>
+    <block wx:else>
+      <view wx:if="{{running}}" class="timer-btn" bindtap="onPause">
+        <view class="ic ic-pause"></view>
+        <text>暂停</text>
+      </view>
+      <view wx:else class="timer-btn accent" bindtap="onResume">
+        <view class="ic ic-play"></view>
+        <text>继续</text>
+      </view>
+      <view class="timer-btn" bindtap="onStop">
+        <view class="ic ic-close-white"></view>
+      </view>
+    </block>
+  </view>
+</view>

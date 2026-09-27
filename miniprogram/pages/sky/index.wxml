@@ -1,15 +1,4 @@
 <view class="sky-container">
-  <!-- Custom Navigation Bar -->
-  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-    <view class="nav-content" style="height: {{navBarHeight}}px;">
-      <view class="back-btn" bindtap="handleBack">
-        <view class="ic ic-chevron-left back-arrow"></view>
-      </view>
-      <view class="nav-title">出游助手</view>
-      <view class="nav-placeholder"></view>
-    </view>
-  </view>
-
   <!-- Location & Action Header -->
   <view class="location-header">
     <view class="location-card" bindtap="openLocationModal">

@@ -1,12 +1,15 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/sky/index"
+    "pages/sky/index",
+    "pages/kitchen/index",
+    "pages/kitchen/recipe/index",
+    "pages/kitchen/tip/index",
+    "pages/kitchen/focus/index"
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarBackgroundColor": "#fff",
-    "navigationStyle": "custom"
+    "navigationBarBackgroundColor": "#fff"
   },
   "style": "v2",
   "rendererOptions": {

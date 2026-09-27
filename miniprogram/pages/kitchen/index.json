@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "呼噜呼噜的掌上厨房",
+  "usingComponents": {
+    "timer-bar": "./components/timer-bar/index"
+  }
+}

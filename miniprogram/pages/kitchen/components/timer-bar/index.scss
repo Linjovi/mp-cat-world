@@ -1,0 +1,94 @@
+@import "../../icons.scss";
+
+.timer-bar {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 22rpx;
+  border-radius: 28rpx;
+  background: rgba(28, 25, 23, 0.94);
+  color: #fafaf9;
+  box-shadow: 0 12rpx 32rpx rgba(28, 25, 23, 0.28);
+}
+
+.timer-bar.alarm {
+  background: rgba(217, 119, 6, 0.96);
+}
+
+.timer-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.timer-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .ic {
+    width: 34rpx;
+    height: 34rpx;
+  }
+}
+
+.timer-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.timer-title {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer-clock {
+  font-size: 30rpx;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.timer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-left: 16rpx;
+}
+
+.timer-btn,
+.timer-dismiss {
+  padding: 8rpx 16rpx;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+
+  .ic {
+    width: 24rpx;
+    height: 24rpx;
+  }
+}
+
+.timer-btn.accent {
+  color: #fbbf24;
+}
+
+.timer-dismiss {
+  background: #fff;
+  color: #92400e;
+}

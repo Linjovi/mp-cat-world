@@ -1,0 +1,49 @@
+<view class="page">
+  <timer-bar offset-top="{{statusBarHeight + navBarHeight}}" />
+  <view style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav" style="height: {{navBarHeight}}px;">
+      <view class="back" bindtap="handleBack">
+        <view class="ic ic-chevron-left-white"></view>
+      </view>
+      <view class="title-wrap">
+        <text class="name">{{name || '跟做模式'}}</text>
+        <text class="sub">跟做模式 · 第 {{index + 1}} / {{total || 1}} 步</text>
+      </view>
+      <view class="done-btn {{completed ? 'on' : ''}}" bindtap="onToggleComplete">
+        <view class="ic {{completed ? 'ic-check-mint' : 'ic-check-muted'}}"></view>
+        <text>{{completed ? '已完成' : '标为完成'}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="progress"><view class="progress-bar" style="width: {{progress}}%;"></view></view>
+
+  <view wx:if="{{loading}}" class="center">正在准备步骤...</view>
+  <view wx:elif="{{error}}" class="center">{{error}}</view>
+  <view wx:else class="body">
+    <text class="section-pill">{{sectionTitle}}</text>
+    <text class="step-no">{{stepNo}}</text>
+    <text class="step-text">{{text}}</text>
+    <view wx:if="{{minutes}}" class="timer-card">
+      <view class="timer-copy">
+        <view class="timer-head">
+          <view class="ic ic-clock"></view>
+          <text class="timer-title">检测到烹饪时长：{{minutes}} 分钟</text>
+        </view>
+        <text class="timer-desc">一键开启定时，到点震动提醒</text>
+      </view>
+      <view class="start" bindtap="onStartTimer">开启计时</view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && !error}}" class="footer">
+    <view class="nav-btn prev {{index === 0 ? 'disabled' : ''}}" bindtap="onPrev">
+      <view class="ic ic-chevron-left-white"></view>
+      <text>上一步</text>
+    </view>
+    <view class="nav-btn {{isLast ? 'finish' : 'next'}}" bindtap="onNext">
+      <text>{{isLast ? '大功告成' : '下一步'}}</text>
+      <view wx:if="{{!isLast}}" class="ic ic-chevron-right-white"></view>
+      <view wx:else class="ic ic-sparkle-amber"></view>
+    </view>
+  </view>
+</view>

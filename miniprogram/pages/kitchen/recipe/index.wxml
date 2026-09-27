@@ -1,0 +1,141 @@
+<view class="page">
+  <timer-bar offset-top="{{statusBarHeight + navBarHeight}}" />
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-content" style="height: {{navBarHeight}}px;">
+      <view class="back-btn" bindtap="handleBack">
+        <view class="ic ic-chevron-left"></view>
+      </view>
+      <text class="nav-title">{{categoryName || '食谱指南'}}</text>
+      <view class="nav-actions">
+        <view class="fav-btn" bindtap="onCopyShare">
+          <view class="ic ic-share"></view>
+        </view>
+        <view class="fav-btn {{favorite ? 'on' : ''}}" bindtap="onToggleFavorite">
+          <view class="ic {{favorite ? 'ic-bookmark-fill' : 'ic-bookmark'}}"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="main">
+    <view wx:if="{{loading}}" class="loading">
+      <view class="empty-icon">
+        <view class="ic ic-book-amber"></view>
+      </view>
+      <text class="muted">正在翻阅食谱秘籍...</text>
+    </view>
+    <view wx:elif="{{error}}" class="empty">
+      <text class="empty-title">未能加载菜谱</text>
+      <text class="empty-desc">{{error}}</text>
+      <view class="dark-btn" style="margin-top: 24rpx;" bindtap="handleBack">返回</view>
+    </view>
+    <block wx:else>
+      <view class="card">
+        <view class="meta-row">
+          <text class="badge {{theme}}">{{categoryName}}</text>
+          <text wx:if="{{peopleText}}" class="mini-badge">{{peopleText}}</text>
+        </view>
+        <text class="hero-title">{{name}}</text>
+        <view wx:if="{{summary}}" class="summary-box">
+          <text class="recipe-summary" style="-webkit-line-clamp: 8;">{{summary}}</text>
+        </view>
+        <view class="stat-grid">
+          <view class="stat">
+            <text class="stat-label">烹饪难度</text>
+            <view class="stars">
+              <view wx:for="{{stars}}" wx:for-item="on" wx:key="index" class="ic {{on ? 'ic-star' : 'ic-star-off'}}"></view>
+            </view>
+          </view>
+          <view class="stat">
+            <text class="stat-label">预估卡路里</text>
+            <text>{{caloriesText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{calculationText || peopleText}}" class="card">
+        <view class="section-head">
+          <view class="pill-with-icon">
+            <view class="ic ic-users"></view>
+            <text class="section-title">用餐人数与份量规划</text>
+          </view>
+          <text wx:if="{{basePeople}}" class="muted">基准 {{basePeople}}</text>
+        </view>
+        <view wx:if="{{calculationText}}" class="calc-box">
+          <text class="calc-text">{{calculationText}}</text>
+        </view>
+        <view class="inline-pills" style="margin-top: 16rpx;">
+          <text class="muted">计划备菜</text>
+          <view wx:for="{{servings}}" wx:key="*this" class="pill {{servingDiners === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onServing">{{item}} 人食</view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="section-head">
+          <text class="section-title">备料清单 ({{checkedCount}}/{{ingredients.length}})</text>
+          <view class="link-with-icon" bindtap="onAddShopping">
+            <view class="ic ic-cart"></view>
+            <text class="link-text">加入采购单</text>
+          </view>
+        </view>
+        <text class="muted">下厨备料时，点击食材可划线标记已准备好。</text>
+        <view wx:if="{{ingredients.length === 0}}" class="muted" style="margin-top: 16rpx;">暂无单独列出原料，详见步骤说明。</view>
+        <view wx:for="{{ingredients}}" wx:key="index" class="ing-item {{item.checked ? 'done' : ''}}" data-index="{{index}}" bindtap="onToggleIngredient">
+          <view class="check {{item.checked ? 'on' : ''}}">
+            <view wx:if="{{item.checked}}" class="ic ic-check"></view>
+          </view>
+          <text class="grow {{item.checked ? 'line-through' : ''}}">{{item.text}}</text>
+          <text wx:if="{{item.optional}}" class="mini-badge">可选</text>
+        </view>
+      </view>
+
+      <view wx:if="{{tools.length}}" class="card">
+        <text class="section-title">所需厨房用具</text>
+        <view class="inline-pills" style="margin-top: 16rpx;">
+          <text wx:for="{{tools}}" wx:key="*this" class="tool-chip">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="section-head">
+          <text class="section-title">制作步骤</text>
+          <view class="dark-btn btn-with-icon" style="height: 60rpx; padding: 0 20rpx; font-size: 22rpx;" bindtap="onFocus">
+            <view class="ic ic-sparkle-amber"></view>
+            <text>厨房跟做</text>
+          </view>
+        </view>
+        <view wx:if="{{steps.length === 0}}" class="muted">本菜谱暂无分步指引。</view>
+        <view wx:for="{{steps}}" wx:for-item="section" wx:key="index">
+          <text wx:if="{{section.title}}" class="dish-title">{{section.title}}</text>
+          <view wx:for="{{section.items}}" wx:for-item="line" wx:key="index" class="step-item">
+            <text class="step-index">{{index + 1}}</text>
+            <text class="step-text">{{line}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{extras.length}}" class="card extra-box">
+        <text class="section-title">烹饪小贴士</text>
+        <text wx:for="{{extras}}" wx:key="index" class="extra-text" style="display: block; margin-top: 12rpx;">{{item}}</text>
+      </view>
+
+      <view wx:if="{{related.length}}" class="card">
+        <text class="section-title">同款其他做法</text>
+        <view wx:for="{{related}}" wx:key="id" class="related" data-id="{{item.id}}" bindtap="onRelated">
+          <text class="grow ellipsis">{{item.name}}</text>
+          <view class="link-with-icon">
+            <text class="link-text">切换查看</text>
+            <view class="ic ic-chevron-right"></view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view wx:if="{{!loading && !error}}" class="bottom-bar">
+    <view class="primary-btn btn-with-icon" style="width: 100%" bindtap="onFocus">
+      <view class="ic ic-chef-white"></view>
+      <text>开始跟做这道菜</text>
+    </view>
+  </view>
+</view>

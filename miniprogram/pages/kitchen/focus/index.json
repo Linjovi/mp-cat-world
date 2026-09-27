@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "跟做模式",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "timer-bar": "../components/timer-bar/index"
+  }
+}

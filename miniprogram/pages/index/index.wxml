@@ -1,7 +1,7 @@
 <view class="container" style="padding-top: {{paddingTop}}px">
   <view class="header">
     <view class="title">欢迎来到</view>
-    <view class="subtitle">呼噜呼噜事务所</view>
+    <view class="subtitle">呼噜呼噜的小世界</view>
     <image class="header-illustration" src="https://pic1.imgdb.cn/item/6938113900233646958db1ac.png" mode="aspectFit" />
   </view>
 
@@ -9,7 +9,10 @@
     <block wx:for="{{appList}}" wx:key="id">
       <view class="app-card {{item.className}}" bindtap="onAppSelect" data-url="{{item.url}}">
          <view class="card-icon-container">
-            <image class="card-icon" src="{{item.icon}}" mode="aspectFill" />
+            <image wx:if="{{item.icon}}" class="card-icon" src="{{item.icon}}" mode="aspectFill" />
+            <view wx:else class="card-icon placeholder-icon">
+              <text class="icon-emoji">{{item.iconEmoji}}</text>
+            </view>
          </view>
          <view class="card-content">
             <view class="card-text">
@@ -23,13 +26,14 @@
               <text class="arrow-icon">></text>
             </view>
          </view>
-         <image class="card-illustration" src="{{item.illustration}}" mode="aspectFill" />
+         <image wx:if="{{item.illustration}}" class="card-illustration" src="{{item.illustration}}" mode="aspectFill" />
+         <text wx:elif="{{item.decor}}" class="card-decor">{{item.decor}}</text>
       </view>
     </block>
 
     <!-- More Placeholder -->
     <view class="more-card">
-       <text>🏗️ 更多应用建设中...</text>
+       <text>更多应用建设中...</text>
     </view>
   </view>
 </view>

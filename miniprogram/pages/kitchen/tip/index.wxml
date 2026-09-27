@@ -1,0 +1,35 @@
+<view class="page">
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-content" style="height: {{navBarHeight}}px;">
+      <view class="back-btn" bindtap="handleBack">
+        <view class="ic ic-chevron-left"></view>
+      </view>
+      <text class="nav-title">{{groupText}}</text>
+      <view class="nav-side"></view>
+    </view>
+  </view>
+
+  <view class="main">
+    <view wx:if="{{loading}}" class="loading">
+      <text class="muted">正在查阅烹饪指南...</text>
+    </view>
+    <view wx:elif="{{error}}" class="empty">
+      <text class="empty-title">{{error}}</text>
+      <view class="dark-btn" style="margin-top: 24rpx;" bindtap="handleBack">返回</view>
+    </view>
+    <block wx:else>
+      <view class="banner">
+        <text class="banner-pill">{{groupText}}</text>
+        <text class="banner-title">{{name}}</text>
+        <text class="banner-desc">来自 HowToCook《程序员在家做饭指南》的精炼技巧心得。</text>
+      </view>
+      <view wx:for="{{sections}}" wx:key="key" class="tip-section {{item.depth > 0 ? 'child' : ''}}">
+        <text wx:if="{{item.title}}" class="section-title">{{item.title}}</text>
+        <view wx:for="{{item.lines}}" wx:for-item="line" wx:key="index" class="tip-line {{line.bullet ? 'bullet' : ''}}">
+          <text wx:if="{{line.bullet}}" class="bullet-dot"></text>
+          <text wx:for="{{line.parts}}" wx:for-item="part" wx:key="index" class="{{part.bold ? 'bold' : ''}}">{{part.text}}</text>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

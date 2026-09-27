@@ -119,6 +119,14 @@
     border: 6rpx solid #CFE6FA;
   }
 
+  &.card-kitchen {
+    background: linear-gradient(135deg, #ffffff 0%, #FFF4E5 100%);
+  }
+
+  &.card-kitchen .card-icon-container {
+    border: 6rpx solid #F6D7A8;
+  }
+
 
   /* Content */
   .card-content {
@@ -177,6 +185,16 @@
       background: #E6F2FF;
       color: #007AFF;
     }
+
+    &.orange {
+      background: #FFF1E0;
+      color: #E07A00;
+    }
+
+    &.amber {
+      background: #FFF6D8;
+      color: #B45309;
+    }
   }
 
   /* Right Arrow */
@@ -198,6 +216,16 @@
   }
 
   /* Illustration */
+  .card-decor {
+    position: absolute;
+    right: 12rpx;
+    bottom: -20rpx;
+    font-size: 150rpx;
+    line-height: 1;
+    opacity: 0.22;
+    z-index: 1;
+  }
+
   .card-illustration {
     position: absolute;
     right: -10rpx;

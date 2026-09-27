@@ -15,8 +15,21 @@ Component({
         name: '出游助手',
         desc: '徒步·云海·日出·晚霞指数与出行指南',
         tags: [
-          { text: '徒步指数 🏔️', color: 'green' },
-          { text: '云海日出 🌅', color: 'blue' }
+          { text: '徒步指数', color: 'green' },
+          { text: '云海日出', color: 'blue' }
+        ]
+      },
+      {
+        id: 'kitchen',
+        className: 'card-kitchen',
+        url: '/pages/kitchen/index',
+        icon: 'https://pic.imgdd.cc/i/034W1sQkI8dEIGHuVeHa6z.png',
+        illustration: 'https://pic.imgdd.cc/i/034W1rWd227BVPvmbTiM9v.png',
+        name: '掌上厨房',
+        desc: '菜谱 · 智能配菜 · 烹饪技巧',
+        tags: [
+          { text: '家常菜谱', color: 'orange' },
+          { text: '智能配菜', color: 'amber' }
         ]
       }
     ]

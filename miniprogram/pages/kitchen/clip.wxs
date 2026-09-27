@@ -1,0 +1,9 @@
+function short(text) {
+  if (!text) return '经典家常做法，简单清晰，配方可靠。'
+  var value = '' + text
+  return value.length > 72 ? value.slice(0, 72) + '…' : value
+}
+
+module.exports = {
+  short: short,
+}

@@ -1,0 +1,337 @@
+<view class="page">
+  <wxs src="./clip.wxs" module="clip" />
+  <timer-bar offset-top="{{statusBarHeight + navBarHeight}}" />
+  <view class="main">
+    <block wx:if="{{tab === 'recipes'}}">
+      <view class="search-row">
+        <view class="search-box">
+          <view class="search-icon">
+            <view class="ic ic-search"></view>
+          </view>
+          <input class="search-input" value="{{searchQuery}}" placeholder="搜索菜名、原料，如 牛肉、土豆" bindinput="onSearchInput" confirm-type="search" />
+          <view wx:if="{{searchQuery}}" class="clear-btn" catchtap="onClearSearch">
+            <view class="ic ic-close"></view>
+          </view>
+        </view>
+        <view class="filter-btn {{showFilter || difficultyFilter > 0 || sortField !== 'name' ? 'on' : ''}}" bindtap="onToggleFilter">
+          <view class="ic {{showFilter || difficultyFilter > 0 || sortField !== 'name' ? 'ic-sliders-on' : 'ic-sliders'}}"></view>
+        </view>
+      </view>
+
+      <view wx:if="{{showFilter}}" class="card">
+        <view class="filter-block">
+          <text class="filter-label">烹饪难度星级</text>
+          <view class="inline-pills">
+            <view class="pill {{difficultyFilter === 0 ? 'on' : ''}}" data-value="0" bindtap="onDifficulty">不限难度</view>
+            <view wx:for="{{stars}}" wx:key="*this" class="pill {{difficultyFilter === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onDifficulty">{{item}} 星</view>
+          </view>
+        </view>
+        <view class="filter-block filter-row">
+          <view>
+            <text class="filter-label">排序方式</text>
+            <view class="inline-pills">
+              <view class="sort-btn {{sortField === 'name' ? 'dark-on' : ''}}" data-field="name" bindtap="onSortField">菜名字母</view>
+              <view class="sort-btn {{sortField === 'difficulty' ? 'dark-on' : ''}}" data-field="difficulty" bindtap="onSortField">难度</view>
+              <view class="sort-btn {{sortField === 'calories' ? 'dark-on' : ''}}" data-field="calories" bindtap="onSortField">卡路里</view>
+            </view>
+          </view>
+          <view>
+            <text class="filter-label">顺序</text>
+            <view class="sort-btn pill-with-icon" bindtap="onToggleOrder">
+              <view class="ic ic-sort"></view>
+              <text>{{sortOrder === 'asc' ? '升序' : '降序'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <scroll-view class="chips" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="chips-inner">
+          <view class="chip {{selectedCategory === 'all' ? 'on' : ''}}" data-id="all" bindtap="onCategory">全部 ({{totalCount || 372}})</view>
+          <view wx:for="{{categories}}" wx:key="id" class="chip {{selectedCategory === item.id ? 'on' : ''}}" data-id="{{item.id}}" bindtap="onCategory">{{item.name}} ({{item.count}})</view>
+        </view>
+      </scroll-view>
+
+      <view class="result-bar">
+        <text>共找到 <text class="strong">{{total}}</text> 道菜谱<text wx:if="{{difficultyFilter > 0}}"> · {{difficultyFilter}} 星</text></text>
+        <text wx:if="{{total > 0}}">第 {{page}} / {{totalPages}} 页</text>
+      </view>
+
+      <view wx:if="{{loading}}" class="loading">
+        <view class="empty-icon">
+          <view class="ic ic-chef"></view>
+        </view>
+        <text class="muted">正在挑选佳肴...</text>
+      </view>
+      <view wx:elif="{{error}}" class="error-box">{{error}}</view>
+      <view wx:elif="{{recipes.length === 0}}" class="empty">
+        <view class="empty-icon">
+          <view class="ic ic-utensils"></view>
+        </view>
+        <text class="empty-title">未搜索到相关菜谱</text>
+        <text class="empty-desc">可以尝试搜索通用原料，如 鸡蛋、鸡肉、米饭</text>
+        <view class="dark-btn" style="margin-top: 24rpx;" bindtap="onResetFilters">重置筛选条件</view>
+      </view>
+      <block wx:else>
+        <view wx:for="{{recipes}}" wx:key="id" class="recipe-card" data-id="{{item.id}}" bindtap="onOpenRecipe">
+          <view class="card-top">
+            <view class="meta-row">
+              <text class="badge {{item.theme}}">{{item.categoryName}}</text>
+              <text wx:if="{{item.peopleText}}" class="mini-badge">{{item.peopleText}}</text>
+            </view>
+            <view class="fav-btn {{item.favorite ? 'on' : ''}}" catchtap="onToggleFavorite" data-id="{{item.id}}">
+              <view class="ic {{item.favorite ? 'ic-bookmark-fill' : 'ic-bookmark'}}"></view>
+            </view>
+          </view>
+          <text class="recipe-name">{{item.name}}</text>
+          <text class="recipe-summary">{{clip.short(item.summary)}}</text>
+          <view class="card-foot">
+            <view class="stars">
+              <view wx:for="{{item.stars}}" wx:for-item="on" wx:key="index" class="ic {{on ? 'ic-star' : 'ic-star-off'}}"></view>
+            </view>
+            <view wx:if="{{item.showCalories}}" class="kcal">
+              <view class="ic ic-flame"></view>
+              <text>{{item.calories}} kcal</text>
+            </view>
+          </view>
+        </view>
+        <view wx:if="{{totalPages > 1}}" class="pager">
+          <view class="pager-btn {{page <= 1 ? 'disabled' : ''}}" bindtap="onPrevPage">
+            <view class="ic ic-chevron-left"></view>
+            <text>上一页</text>
+          </view>
+          <text class="muted">{{page}} / {{totalPages}}</text>
+          <view class="pager-btn {{page >= totalPages ? 'disabled' : ''}}" bindtap="onNextPage">
+            <text>下一页</text>
+            <view class="ic ic-chevron-right"></view>
+          </view>
+        </view>
+      </block>
+    </block>
+
+    <block wx:elif="{{tab === 'recommend'}}">
+      <view class="banner">
+        <text class="banner-pill">智能黄金比例配餐</text>
+        <text class="banner-title">今天吃什么 · 一桌好菜</text>
+        <text class="banner-desc">科学荤素搭配：菜品总数 = 人数 + 1；素菜占半，荤肉适量；满 8 人精选水产大菜。</text>
+      </view>
+      <view class="card">
+        <view class="section-head">
+          <view class="pill-with-icon">
+            <view class="ic ic-users"></view>
+            <text class="section-title">用餐人数：{{people}} 人</text>
+          </view>
+          <text class="muted">1 ~ 20 人</text>
+        </view>
+        <slider min="1" max="20" value="{{people}}" activeColor="#d97706" block-size="20" bindchanging="onPeopleChanging" bindchange="onPeopleChange" />
+        <view class="inline-pills">
+          <view wx:for="{{peoplePresets}}" wx:key="*this" class="pill {{people === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onPeoplePreset">{{item}} 人</view>
+        </view>
+        <view class="filter-block section-head">
+          <text class="muted">难度上限</text>
+          <view class="inline-pills">
+            <view wx:for="{{stars}}" wx:key="*this" class="pill {{difficultyMax === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onDifficultyMax">{{item}} 星</view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{recommendLoading}}" class="loading"><text class="muted">正在搭配一桌菜...</text></view>
+      <view wx:elif="{{recommendError}}" class="error-box">{{recommendError}}</view>
+      <view wx:elif="{{recommend}}" class="card">
+        <view class="section-head">
+          <view>
+            <text class="section-title">本桌席位清单（共 {{recommend.count}} 道菜）</text>
+            <text class="muted">素菜 {{recommend.vegetableCount}} 道 · 荤菜 {{recommend.meatCount}} 道</text>
+          </view>
+          <view class="pill pill-with-icon" bindtap="onReroll">
+            <view class="ic ic-refresh"></view>
+            <text>换一桌</text>
+          </view>
+        </view>
+        <view wx:if="{{recommend.totalCalories > 0}}" class="stat-grid">
+          <view class="stat">
+            <text class="stat-label">本桌总能量</text>
+            <text>{{recommend.totalCalories}} kcal</text>
+          </view>
+          <view class="stat">
+            <text class="stat-label">人均预估</text>
+            <text>{{recommend.avgCalories}} kcal/人</text>
+          </view>
+        </view>
+        <view wx:if="{{recommend.warnings}}" class="warn" style="margin-top: 16rpx;">{{recommend.warnings}}</view>
+        <view wx:for="{{recommend.items}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="onOpenRecipe">
+          <view class="grow">
+            <text class="badge {{item.roleTheme}}">{{item.roleLabel}}</text>
+            <text class="recipe-name ellipsis">{{item.name}}</text>
+            <view class="meta-row" style="margin-top: 6rpx;">
+              <view class="stars">
+                <view wx:for="{{item.stars}}" wx:for-item="on" wx:key="index" class="ic {{on ? 'ic-star' : 'ic-star-off'}}"></view>
+              </view>
+              <text wx:if="{{item.showCalories}}" class="muted">{{item.calories}} kcal</text>
+            </view>
+          </view>
+          <view class="link-with-icon">
+            <text class="link-text">查看</text>
+            <view class="ic ic-chevron-right"></view>
+          </view>
+        </view>
+        <view class="primary-btn btn-with-icon" style="width: 100%" bindtap="onAddTableShopping">
+          <view class="ic ic-cart-white"></view>
+          <text>{{batchLoading ? '正在汇总食材...' : '一键添加整桌食材至采购清单'}}</text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:elif="{{tab === 'tips'}}">
+      <view class="banner">
+        <text class="banner-pill">下厨基本功秘籍</text>
+        <text class="banner-title">厨房烹饪百宝箱</text>
+        <text class="banner-desc">收录去腥、焯水、油温判断、炒糖色、高压锅等实用烹饪原理与技巧。</text>
+      </view>
+      <view class="search-row">
+        <view class="search-box">
+          <view class="search-icon">
+            <view class="ic ic-search"></view>
+          </view>
+          <input class="search-input" value="{{tipQuery}}" placeholder="搜索技巧，如 油温、去腥、焯水" bindinput="onTipInput" bindconfirm="onTipSearch" confirm-type="search" />
+        </view>
+        <view class="filter-btn on" bindtap="onTipSearch">
+          <view class="ic ic-search-white"></view>
+        </view>
+      </view>
+      <scroll-view class="chips" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="chips-inner">
+          <view wx:for="{{tipGroups}}" wx:key="id" class="chip {{tipGroup === item.id ? 'dark-on' : ''}}" data-id="{{item.id}}" bindtap="onTipGroup">{{item.label}}</view>
+        </view>
+      </scroll-view>
+      <view wx:if="{{tipsLoading}}" class="loading"><text class="muted">正在整理技巧笔记...</text></view>
+      <view wx:elif="{{tipsError}}" class="error-box">{{tipsError}}</view>
+      <view wx:elif="{{tips.length === 0}}" class="empty">
+        <text class="empty-title">未找到符合条件的技巧篇目</text>
+        <view class="link-text" style="margin-top: 16rpx;" bindtap="onResetTips">重置筛选</view>
+      </view>
+      <block wx:else>
+        <view wx:for="{{tips}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="onOpenTip">
+          <view class="grow">
+            <text class="badge {{item.theme}}">{{item.badge}}</text>
+            <text class="recipe-name ellipsis">{{item.name}}</text>
+            <text class="recipe-summary">{{clip.short(item.summary)}}</text>
+          </view>
+          <view class="link-with-icon">
+            <text class="link-text">阅读</text>
+            <view class="ic ic-chevron-right"></view>
+          </view>
+        </view>
+      </block>
+    </block>
+
+    <block wx:else>
+      <view class="seg">
+        <view class="seg-item {{kitchenTab === 'favorites' ? 'on' : ''}}" data-tab="favorites" bindtap="onKitchenTab">收藏 ({{favoriteCount}})</view>
+        <view class="seg-item {{kitchenTab === 'shopping' ? 'on' : ''}}" data-tab="shopping" bindtap="onKitchenTab">备料单 ({{shoppingCount}})</view>
+        <view class="seg-item {{kitchenTab === 'history' ? 'on' : ''}}" data-tab="history" bindtap="onKitchenTab">足迹 ({{recentCount}})</view>
+      </view>
+
+      <block wx:if="{{kitchenTab === 'favorites'}}">
+        <view wx:if="{{favoriteRecipes.length === 0}}" class="empty">
+          <view class="empty-icon">
+            <view class="ic ic-bookmark"></view>
+          </view>
+          <text class="empty-title">暂无收藏的菜谱</text>
+          <text class="empty-desc">在菜谱卡片或详情页点击书签即可收藏</text>
+        </view>
+        <block wx:else>
+          <view wx:for="{{favoriteRecipes}}" wx:key="id" class="recipe-card" data-id="{{item.id}}" bindtap="onOpenRecipe">
+            <view class="card-top">
+              <text class="badge {{item.theme}}">{{item.categoryName}}</text>
+              <view class="fav-btn on" catchtap="onToggleFavorite" data-id="{{item.id}}">
+                <view class="ic ic-bookmark-fill"></view>
+              </view>
+            </view>
+            <text class="recipe-name">{{item.name}}</text>
+            <text class="recipe-summary">{{clip.short(item.summary)}}</text>
+          </view>
+        </block>
+      </block>
+
+      <block wx:elif="{{kitchenTab === 'shopping'}}">
+        <view wx:if="{{shoppingCount === 0}}" class="empty">
+          <view class="empty-icon">
+            <view class="ic ic-cart"></view>
+          </view>
+          <text class="empty-title">采购备料清单是空的</text>
+          <text class="empty-desc">在菜谱详情或智能配菜里，把食材加入采购单后会汇总在这里</text>
+        </view>
+        <block wx:else>
+          <view class="toolbar card">
+            <text class="muted">已备好 {{completedCount}} / {{shoppingCount}} 项</text>
+            <view class="inline-pills">
+              <view class="pill pill-with-icon" bindtap="onCopyShopping">
+                <view class="ic ic-copy"></view>
+                <text>复制</text>
+              </view>
+              <view wx:if="{{completedCount > 0}}" class="pill" bindtap="onClearCompleted">清除已买</view>
+              <view class="pill" bindtap="onClearShopping">
+                <view class="ic ic-trash"></view>
+              </view>
+            </view>
+          </view>
+          <view wx:for="{{shoppingGroups}}" wx:key="dishName" class="card">
+            <text class="dish-title">{{item.dishName}}</text>
+            <view wx:for="{{item.items}}" wx:for-item="goods" wx:key="id" class="ing-item {{goods.completed ? 'done' : ''}}">
+              <view class="check {{goods.completed ? 'on' : ''}}" data-id="{{goods.id}}" bindtap="onToggleShopping">
+                <view wx:if="{{goods.completed}}" class="ic ic-check"></view>
+              </view>
+              <text class="grow {{goods.completed ? 'line-through' : ''}}">{{goods.text}}</text>
+              <text wx:if="{{goods.optional}}" class="mini-badge">可选</text>
+              <view class="icon-remove" data-id="{{goods.id}}" catchtap="onRemoveShopping">
+                <view class="ic ic-close"></view>
+              </view>
+            </view>
+          </view>
+        </block>
+      </block>
+
+      <block wx:else>
+        <view wx:if="{{recentRecipes.length === 0}}" class="empty">
+          <view class="empty-icon">
+            <view class="ic ic-history"></view>
+          </view>
+          <text class="empty-title">暂无浏览记录</text>
+        </view>
+        <block wx:else>
+          <view wx:for="{{recentRecipes}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="onOpenRecipe">
+            <view class="grow">
+              <text class="mini-badge">{{item.categoryName}}</text>
+              <text class="recipe-name ellipsis">{{item.name}}</text>
+              <text class="recipe-summary">{{clip.short(item.summary)}}</text>
+            </view>
+            <view class="link-with-icon">
+              <text class="link-text">查看</text>
+              <view class="ic ic-chevron-right"></view>
+            </view>
+          </view>
+        </block>
+      </block>
+    </block>
+  </view>
+
+  <view class="tabbar">
+    <view class="tab-item {{tab === 'recipes' ? 'on' : ''}}" data-tab="recipes" bindtap="onTab">
+      <view class="ic tab-icon tab-icon-recipes"></view>
+      <text>菜谱</text>
+    </view>
+    <view class="tab-item {{tab === 'recommend' ? 'on' : ''}}" data-tab="recommend" bindtap="onTab">
+      <view class="ic tab-icon tab-icon-recommend"></view>
+      <text>智能配菜</text>
+    </view>
+    <view class="tab-item {{tab === 'tips' ? 'on' : ''}}" data-tab="tips" bindtap="onTab">
+      <view class="ic tab-icon tab-icon-tips"></view>
+      <text>烹饪技巧</text>
+    </view>
+    <view class="tab-item {{tab === 'kitchen' ? 'on' : ''}}" data-tab="kitchen" bindtap="onTab">
+      <view class="ic tab-icon tab-icon-kitchen"></view>
+      <text>我的厨房</text>
+    </view>
+  </view>
+</view>
