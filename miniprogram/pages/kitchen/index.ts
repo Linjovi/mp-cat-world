@@ -120,7 +120,7 @@ Page({
 
   onShareAppMessage() {
     return {
-      title: '掌上厨房：程序员在家做饭指南',
+      title: '呼噜呼噜的掌上厨房：菜谱、智能配菜和烹饪技巧',
       path: '/pages/kitchen/index',
     }
   },

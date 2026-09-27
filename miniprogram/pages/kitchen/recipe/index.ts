@@ -45,9 +45,9 @@ Page({
   },
 
   onShareAppMessage() {
-    const name = this.data.name || '掌上厨房'
+    const name = this.data.name
     return {
-      title: `${name} · 掌上厨房`,
+      title: name ? `${name}：食材用量和做法` : '菜谱详情：看食材用量和做法',
       path: `/pages/kitchen/recipe/index?id=${encodeURIComponent(this.recipeId)}`,
     }
   },

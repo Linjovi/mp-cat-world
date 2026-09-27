@@ -45,14 +45,14 @@ Component({
   methods: {
     onShareAppMessage() {
       return {
-        title: '出游助手：徒步 · 云海 · 日出晚霞预报',
+        title: '呼噜呼噜的小世界：出游助手与掌上厨房',
         path: '/pages/index/index'
       };
     },
 
     onShareTimeline() {
       return {
-        title: '出游助手：徒步 · 云海 · 日出晚霞预报'
+        title: '呼噜呼噜的小世界：出游助手与掌上厨房'
       };
     },
 

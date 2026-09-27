@@ -9,6 +9,8 @@ interface FlatStep {
 }
 
 Page({
+  recipeId: '',
+
   data: {
     statusBarHeight: 20,
     navBarHeight: 44,
@@ -32,6 +34,7 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.setData(getNavMetrics())
     const id = readQueryId(query.id)
+    this.recipeId = id
     if (!id) {
       this.setData({ loading: false, error: '缺少菜谱编号' })
       return
@@ -95,6 +98,16 @@ Page({
 
   handleBack() {
     wx.navigateBack()
+  },
+
+  onShareAppMessage() {
+    const name = this.data.name
+    return {
+      title: name ? `${name}：一步步跟做这道菜` : '跟做模式：一步步完成这道菜',
+      path: this.recipeId
+        ? `/pages/kitchen/focus/index?id=${encodeURIComponent(this.recipeId)}`
+        : '/pages/kitchen/index',
+    }
   },
 
   onToggleComplete() {
