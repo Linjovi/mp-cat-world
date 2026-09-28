@@ -203,6 +203,7 @@ navigator {
 .toolbar,
 .pager {
   justify-content: space-between;
+  gap: 16rpx;
 }
 
 .inline-pills,
@@ -215,6 +216,10 @@ navigator {
   margin-top: 20rpx;
   padding-top: 20rpx;
   border-top: 1rpx solid #f5f5f4;
+}
+
+.inline-pills + .filter-block {
+  margin-top: 24rpx;
 }
 
 .result-bar {
@@ -719,7 +724,16 @@ navigator {
   background: #fafaf9;
 }
 
+.section-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
 .section-title {
+  display: block;
   font-size: 28rpx;
   font-weight: 800;
   color: #1c1917;

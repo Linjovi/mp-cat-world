@@ -135,7 +135,7 @@
         <view class="inline-pills">
           <view wx:for="{{peoplePresets}}" wx:key="*this" class="pill {{people === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onPeoplePreset">{{item}} 人</view>
         </view>
-        <view class="filter-block section-head">
+        <view class="filter-block section-head" style="margin-top: 8rpx;">
           <text class="muted">难度上限</text>
           <view class="inline-pills">
             <view wx:for="{{stars}}" wx:key="*this" class="pill {{difficultyMax === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onDifficultyMax">{{item}} 星</view>
@@ -147,16 +147,16 @@
       <view wx:elif="{{recommendError}}" class="error-box">{{recommendError}}</view>
       <view wx:elif="{{recommend}}" class="card">
         <view class="section-head">
-          <view>
-            <text class="section-title">本桌席位清单（共 {{recommend.count}} 道菜）</text>
-            <text class="muted">素菜 {{recommend.vegetableCount}} 道 · 荤菜 {{recommend.meatCount}} 道</text>
+          <view class="section-copy">
+            <view class="section-title">本桌席位清单（共 {{recommend.count}} 道菜）</view>
+            <view class="muted">素菜 {{recommend.vegetableCount}} 道 · 荤菜 {{recommend.meatCount}} 道</view>
           </view>
           <view class="pill pill-with-icon" bindtap="onReroll">
             <view class="ic ic-refresh"></view>
             <text>换一桌</text>
           </view>
         </view>
-        <view wx:if="{{recommend.totalCalories > 0}}" class="stat-grid">
+        <view wx:if="{{recommend.totalCalories > 0}}" class="stat-grid" style="margin-bottom: 8rpx;">
           <view class="stat">
             <text class="stat-label">本桌总能量</text>
             <text>{{recommend.totalCalories}} kcal</text>
