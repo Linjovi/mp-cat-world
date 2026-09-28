@@ -7,7 +7,7 @@
 
   <view class="app-list">
     <block wx:for="{{appList}}" wx:key="id">
-      <view class="app-card {{item.className}}" bindtap="onAppSelect" data-url="{{item.url}}">
+      <navigator class="app-card {{item.className}}" url="{{item.url}}" hover-class="none">
          <view class="card-icon-container">
             <image wx:if="{{item.icon}}" class="card-icon" src="{{item.icon}}" mode="aspectFill" />
             <view wx:else class="card-icon placeholder-icon">
@@ -28,7 +28,7 @@
          </view>
          <image wx:if="{{item.illustration}}" class="card-illustration" src="{{item.illustration}}" mode="aspectFill" />
          <text wx:elif="{{item.decor}}" class="card-decor">{{item.decor}}</text>
-      </view>
+      </navigator>
     </block>
 
     <!-- More Placeholder -->

@@ -1,22 +1,5 @@
 <view class="page">
   <timer-bar offset-top="{{statusBarHeight + navBarHeight}}" />
-  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-    <view class="nav-content" style="height: {{navBarHeight}}px;">
-      <view class="back-btn" bindtap="handleBack">
-        <view class="ic ic-chevron-left"></view>
-      </view>
-      <text class="nav-title">{{categoryName || '食谱指南'}}</text>
-      <view class="nav-actions">
-        <view class="fav-btn" bindtap="onCopyShare">
-          <view class="ic ic-share"></view>
-        </view>
-        <view class="fav-btn {{favorite ? 'on' : ''}}" bindtap="onToggleFavorite">
-          <view class="ic {{favorite ? 'ic-bookmark-fill' : 'ic-bookmark'}}"></view>
-        </view>
-      </view>
-    </view>
-  </view>
-
   <view class="main">
     <view wx:if="{{loading}}" class="loading">
       <view class="empty-icon">
@@ -31,9 +14,19 @@
     </view>
     <block wx:else>
       <view class="card">
-        <view class="meta-row">
-          <text class="badge {{theme}}">{{categoryName}}</text>
-          <text wx:if="{{peopleText}}" class="mini-badge">{{peopleText}}</text>
+        <view class="card-top">
+          <view class="meta-row">
+            <text class="badge {{theme}}">{{categoryName}}</text>
+            <text wx:if="{{peopleText}}" class="mini-badge">{{peopleText}}</text>
+          </view>
+          <view class="nav-actions">
+            <view class="fav-btn" bindtap="onCopyShare">
+              <view class="ic ic-share"></view>
+            </view>
+            <view class="fav-btn {{favorite ? 'on' : ''}}" bindtap="onToggleFavorite">
+              <view class="ic {{favorite ? 'ic-bookmark-fill' : 'ic-bookmark'}}"></view>
+            </view>
+          </view>
         </view>
         <text class="hero-title">{{name}}</text>
         <view wx:if="{{summary}}" class="summary-box">
@@ -121,13 +114,13 @@
 
       <view wx:if="{{related.length}}" class="card">
         <text class="section-title">同款其他做法</text>
-        <view wx:for="{{related}}" wx:key="id" class="related" data-id="{{item.id}}" bindtap="onRelated">
+        <navigator wx:for="{{related}}" wx:key="id" class="related" url="{{item.href}}" hover-class="none">
           <text class="grow ellipsis">{{item.name}}</text>
           <view class="link-with-icon">
-            <text class="link-text">切换查看</text>
+            <text class="link-text">查看做法</text>
             <view class="ic ic-chevron-right"></view>
           </view>
-        </view>
+        </navigator>
       </view>
     </block>
   </view>

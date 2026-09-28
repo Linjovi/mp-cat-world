@@ -2,14 +2,13 @@ import { fetchCategories, fetchRecipes, fetchRecommend, fetchTips, fetchRecipeDe
 import {
   getNavMetrics,
   groupShopping,
-  openRecipe,
-  openTip,
   shoppingText,
   tipBadge,
   toRecipeCard,
   toRecommendCard,
   toSummary,
 } from './lib/format'
+import { buildKitchenPath, kitchenNavTitle, parseKitchenQuery, tipHref, type KitchenTab, type TipGroup } from './lib/seo'
 import {
   addIngredientsToShoppingList,
   clearCompletedShopping,
@@ -28,17 +27,26 @@ import type { Category, RecommendResponse, TipSummary } from './lib/types'
 const PAGE_SIZE = 20
 const PEOPLE_PRESETS = [1, 2, 4, 6, 8, 10, 12]
 const TIP_GROUPS = [
-  { id: 'all', label: '全部技巧' },
-  { id: 'basic', label: '厨房常识' },
-  { id: 'learn', label: '基础技法' },
-  { id: 'advanced', label: '进阶秘诀' },
+  { id: 'all' as const, label: '全部技巧', href: buildKitchenPath({ tab: 'tips', group: 'all' }) },
+  { id: 'basic' as const, label: '厨房常识', href: buildKitchenPath({ tab: 'tips', group: 'basic' }) },
+  { id: 'learn' as const, label: '基础技法', href: buildKitchenPath({ tab: 'tips', group: 'learn' }) },
+  { id: 'advanced' as const, label: '进阶秘诀', href: buildKitchenPath({ tab: 'tips', group: 'advanced' }) },
 ]
+
+function kitchenTabHrefs() {
+  return {
+    recipes: buildKitchenPath({ tab: 'recipes' }),
+    recommend: buildKitchenPath({ tab: 'recommend' }),
+    tips: buildKitchenPath({ tab: 'tips' }),
+    kitchen: buildKitchenPath({ tab: 'kitchen' }),
+  }
+}
 
 Page({
   data: {
     statusBarHeight: 20,
     navBarHeight: 44,
-    tab: 'recipes' as 'recipes' | 'recommend' | 'tips' | 'kitchen',
+    tab: 'recipes' as KitchenTab,
     categories: [] as Category[],
     totalCount: 0,
     selectedCategory: 'all',
@@ -69,9 +77,9 @@ Page({
     recommendError: '',
     batchLoading: false,
     tipGroups: TIP_GROUPS,
-    tipGroup: 'all',
+    tipGroup: 'all' as TipGroup,
     tipQuery: '',
-    tips: [] as Array<TipSummary & { badge: string; theme: string }>,
+    tips: [] as Array<TipSummary & { badge: string; theme: string; href: string }>,
     tipsLoading: false,
     tipsError: '',
     kitchenTab: 'favorites' as 'favorites' | 'shopping' | 'history',
@@ -83,6 +91,10 @@ Page({
     recentRecipes: [] as ReturnType<typeof toRecipeCard>[],
     recentCount: 0,
     stars: [1, 2, 3, 4, 5],
+    allCategoryHref: buildKitchenPath({ tab: 'recipes' }),
+    prevPageHref: buildKitchenPath({ tab: 'recipes' }),
+    nextPageHref: buildKitchenPath({ tab: 'recipes', page: 2 }),
+    tabHrefs: kitchenTabHrefs(),
   },
 
   searchTimer: 0 as unknown as number,
@@ -90,13 +102,24 @@ Page({
   recommendSeed: Math.floor(Math.random() * 2147483647),
   unsubscribe: null as null | (() => void),
 
-  onLoad() {
-    const metrics = getNavMetrics()
-    this.setData(metrics)
+  onLoad(query: Record<string, string | undefined>) {
+    const parsed = parseKitchenQuery(query)
+    this.setData({
+      ...getNavMetrics(),
+      tab: parsed.tab,
+      selectedCategory: parsed.category,
+      page: parsed.page,
+      tipGroup: parsed.group,
+      searchQuery: parsed.q,
+    })
+    this.refreshListHrefs()
+    wx.setNavigationBarTitle({ title: kitchenNavTitle(parsed.tab) })
     this.unsubscribe = subscribe(() => this.syncKitchen())
     this.syncKitchen()
     this.loadCategories()
     this.loadRecipes()
+    if (parsed.tab === 'recommend') this.loadRecommend()
+    if (parsed.tab === 'tips') this.loadTips()
   },
 
   onShow() {
@@ -110,18 +133,38 @@ Page({
     clearTimeout(this.searchTimer)
   },
 
-  handleBack() {
-    wx.navigateBack({
-      fail() {
-        wx.reLaunch({ url: '/pages/index/index' })
-      },
+  currentKitchenPath() {
+    return buildKitchenPath({
+      tab: this.data.tab,
+      category: this.data.selectedCategory,
+      page: this.data.page,
+      group: this.data.tipGroup,
+      q: this.data.searchQuery,
+    })
+  },
+
+  refreshListHrefs() {
+    const { selectedCategory, page } = this.data
+    this.setData({
+      allCategoryHref: buildKitchenPath({ tab: 'recipes' }),
+      prevPageHref: buildKitchenPath({ tab: 'recipes', category: selectedCategory, page: Math.max(1, page - 1) }),
+      nextPageHref: buildKitchenPath({ tab: 'recipes', category: selectedCategory, page: page + 1 }),
     })
   },
 
   onShareAppMessage() {
     return {
       title: '呼噜呼噜的掌上厨房：菜谱、智能配菜和烹饪技巧',
-      path: '/pages/kitchen/index',
+      path: this.currentKitchenPath(),
+    }
+  },
+
+  onShareTimeline() {
+    const path = this.currentKitchenPath()
+    const query = path.includes('?') ? path.slice(path.indexOf('?') + 1) : ''
+    return {
+      title: '呼噜呼噜的掌上厨房：菜谱、智能配菜和烹饪技巧',
+      query,
     }
   },
 
@@ -129,7 +172,13 @@ Page({
     fetchCategories()
       .then((categories) => {
         const totalCount = categories.reduce((sum, item) => sum + item.count, 0)
-        this.setData({ categories, totalCount })
+        this.setData({
+          categories: categories.map((item) => ({
+            ...item,
+            href: buildKitchenPath({ tab: 'recipes', category: item.id }),
+          })),
+          totalCount,
+        })
       })
       .catch((error) => {
         console.warn('fetchCategories failed', error)
@@ -158,6 +207,7 @@ Page({
           totalPages: Math.max(1, Math.ceil(data.total / PAGE_SIZE)),
           loading: false,
         })
+        this.refreshListHrefs()
       })
       .catch((error: Error) => {
         if (serial !== this.requestSerial) return
@@ -179,14 +229,6 @@ Page({
       recentRecipes: getRecentViews().map((item) => toRecipeCard(item, favorites)),
       recentCount: getRecentViews().length,
     })
-  },
-
-  onTab(event: WechatMiniprogram.TouchEvent) {
-    const tab = event.currentTarget.dataset.tab as 'recipes' | 'recommend' | 'tips' | 'kitchen'
-    this.setData({ tab })
-    if (tab === 'recommend' && !this.data.recommend && !this.data.recommendLoading) this.loadRecommend()
-    if (tab === 'tips' && this.data.tips.length === 0 && !this.data.tipsLoading) this.loadTips()
-    if (tab === 'kitchen') this.syncKitchen()
   },
 
   onSearchInput(event: WechatMiniprogram.Input) {
@@ -225,11 +267,6 @@ Page({
     this.loadRecipes()
   },
 
-  onCategory(event: WechatMiniprogram.TouchEvent) {
-    this.setData({ selectedCategory: event.currentTarget.dataset.id, page: 1 })
-    this.loadRecipes()
-  },
-
   onResetFilters() {
     this.setData({
       searchQuery: '',
@@ -242,10 +279,6 @@ Page({
     this.loadRecipes()
   },
 
-  onOpenRecipe(event: WechatMiniprogram.TouchEvent) {
-    openRecipe(event.currentTarget.dataset.id)
-  },
-
   onToggleFavorite(event: WechatMiniprogram.TouchEvent) {
     const id = event.currentTarget.dataset.id as string
     const recipe = this.data.recipes.find((item) => item.id === id)
@@ -253,20 +286,6 @@ Page({
       || this.data.recentRecipes.find((item) => item.id === id)
     if (!recipe) return
     toggleFavorite(toSummary(recipe))
-  },
-
-  onPrevPage() {
-    if (this.data.page <= 1) return
-    this.setData({ page: this.data.page - 1 })
-    this.loadRecipes()
-    wx.pageScrollTo({ scrollTop: 0, duration: 200 })
-  },
-
-  onNextPage() {
-    if (this.data.page >= this.data.totalPages) return
-    this.setData({ page: this.data.page + 1 })
-    this.loadRecipes()
-    wx.pageScrollTo({ scrollTop: 0, duration: 200 })
   },
 
   loadRecommend() {
@@ -353,18 +372,13 @@ Page({
           tipsLoading: false,
           tips: items.map((item) => {
             const badge = tipBadge(item.group)
-            return { ...item, badge: badge.label, theme: badge.theme }
+            return { ...item, badge: badge.label, theme: badge.theme, href: tipHref(item.id) }
           }),
         })
       })
       .catch((error: Error) => {
         this.setData({ tipsLoading: false, tipsError: error.message || '加载技巧列表失败' })
       })
-  },
-
-  onTipGroup(event: WechatMiniprogram.TouchEvent) {
-    this.setData({ tipGroup: event.currentTarget.dataset.id })
-    this.loadTips()
   },
 
   onTipInput(event: WechatMiniprogram.Input) {
@@ -378,10 +392,6 @@ Page({
   onResetTips() {
     this.setData({ tipQuery: '', tipGroup: 'all' })
     this.loadTips()
-  },
-
-  onOpenTip(event: WechatMiniprogram.TouchEvent) {
-    openTip(event.currentTarget.dataset.id)
   },
 
   onKitchenTab(event: WechatMiniprogram.TouchEvent) {

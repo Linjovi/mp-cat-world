@@ -1,6 +1,5 @@
 {
   "navigationStyle": "custom",
-  "usingComponents": {
-
-  }
+  "navigationBarTitleText": "呼噜呼噜的小世界",
+  "usingComponents": {}
 }

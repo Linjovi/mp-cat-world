@@ -1,14 +1,4 @@
 <view class="page">
-  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-    <view class="nav-content" style="height: {{navBarHeight}}px;">
-      <view class="back-btn" bindtap="handleBack">
-        <view class="ic ic-chevron-left"></view>
-      </view>
-      <text class="nav-title">{{groupText}}</text>
-      <view class="nav-side"></view>
-    </view>
-  </view>
-
   <view class="main">
     <view wx:if="{{loading}}" class="loading">
       <text class="muted">正在查阅烹饪指南...</text>

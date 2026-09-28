@@ -26,6 +26,7 @@ import {
 import { withCoordinateDisplay } from './utils/coordinateDisplay';
 import { evaluateForecast } from './utils/weatherModel';
 import { decorateSkyHour, getSkyInsightMeta } from './utils/skyDeepDive';
+import { buildSkyPath, parseSkyTab, resolveLocationFromQuery, skyNavTitle } from './utils/seo';
 
 function displayLocations(list: LocationItem[]) {
   return list.map(withCoordinateDisplay);
@@ -81,11 +82,6 @@ function matchSkyHour(skyHoursList: any[], activeHourData: { displayHour: string
 
 Page({
   data: {
-    // Navigation bar metrics
-    statusBarHeight: 20,
-    navBarHeight: 44,
-
-    // Core forecasting data
     currentLocation: withCoordinateDisplay(PRESET_LOCATIONS[0]),
     evaluations: [] as DailyForecastEvaluation[],
     rawApiData: null as WeatherApiResponse | null,
@@ -136,62 +132,45 @@ Page({
     guideTopic: 'cloud_sea' as 'cloud_sea' | 'glow' | 'camera',
   },
 
-  onLoad() {
-    // 1. Calculate status bar & nav bar height
-    try {
-      const sysInfo = wx.getSystemInfoSync();
-      const statusBarHeight = sysInfo.statusBarHeight || 20;
-      let navBarHeight = 44;
-      if (wx.getMenuButtonBoundingClientRect) {
-        const menuRect = wx.getMenuButtonBoundingClientRect();
-        navBarHeight = (menuRect.top - statusBarHeight) * 2 + menuRect.height;
-      }
-      this.setData({
-        statusBarHeight,
-        navBarHeight,
-      });
-    } catch (e) {
-      console.warn('getSystemInfoSync failed', e);
-    }
-
-    // 2. Load last active location & initial presets
-    const lastLoc = getLastActiveLocation();
+  onLoad(query: Record<string, string | undefined>) {
     const saved = getSavedLocations();
+    const catalog = PRESET_LOCATIONS.concat(saved, getMapHistory());
+    const fromQuery = resolveLocationFromQuery(query, catalog);
+    const lastLoc = fromQuery || getLastActiveLocation();
+    const activeTab = parseSkyTab(query.tab);
     const initialPresets = PRESET_LOCATIONS.filter((p) => p.category === 'hangzhou');
 
     this.setData({
       currentLocation: withCoordinateDisplay(lastLoc),
+      activeTab,
       savedLocs: displayLocations(saved),
       savedIdMap: this.buildSavedIdMap(saved),
       filteredPresets: displayLocations(initialPresets),
     });
-
-    // 3. Load forecast
+    wx.setNavigationBarTitle({ title: skyNavTitle(lastLoc.name, activeTab) });
     this.loadForecast(lastLoc);
+  },
+
+  currentSkyPath() {
+    return buildSkyPath(this.data.currentLocation, this.data.activeTab);
   },
 
   onShareAppMessage() {
     const locName = this.data.currentLocation?.name || '';
     return {
       title: locName ? `${locName} 的徒步 · 云海 · 日出晚霞预报` : '出游助手：徒步 · 云海 · 日出晚霞预报',
-      path: '/pages/sky/index',
+      path: this.currentSkyPath(),
     };
   },
 
   onShareTimeline() {
     const locName = this.data.currentLocation?.name || '';
+    const path = this.currentSkyPath();
+    const query = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
     return {
       title: locName ? `${locName} 的徒步 · 云海 · 日出晚霞预报` : '出游助手：徒步 · 云海 · 日出晚霞预报',
+      query,
     };
-  },
-
-  handleBack() {
-    const pages = getCurrentPages();
-    if (pages.length > 1) {
-      wx.navigateBack();
-    } else {
-      wx.reLaunch({ url: '/pages/index/index' });
-    }
   },
 
   async loadForecast(loc: LocationItem) {
@@ -209,6 +188,7 @@ Page({
       const evals = evaluateForecast(weather, airQuality);
 
       setLastActiveLocation(loc);
+      wx.setNavigationBarTitle({ title: skyNavTitle(loc.name, this.data.activeTab) });
 
       this.setData(
         {
@@ -310,6 +290,7 @@ Page({
     const tab = e.currentTarget.dataset.tab as PhenomenonType;
     if (tab && tab !== this.data.activeTab) {
       this.setData({ activeTab: tab }, () => {
+        wx.setNavigationBarTitle({ title: skyNavTitle(this.data.currentLocation?.name, tab) });
         this.updateActiveView();
       });
     }

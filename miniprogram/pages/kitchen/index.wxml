@@ -47,8 +47,8 @@
 
       <scroll-view class="chips" scroll-x enhanced show-scrollbar="{{false}}">
         <view class="chips-inner">
-          <view class="chip {{selectedCategory === 'all' ? 'on' : ''}}" data-id="all" bindtap="onCategory">全部 ({{totalCount || 372}})</view>
-          <view wx:for="{{categories}}" wx:key="id" class="chip {{selectedCategory === item.id ? 'on' : ''}}" data-id="{{item.id}}" bindtap="onCategory">{{item.name}} ({{item.count}})</view>
+          <navigator class="chip {{selectedCategory === 'all' ? 'on' : ''}}" url="{{allCategoryHref}}" open-type="redirect" hover-class="none">全部 ({{totalCount || 372}})</navigator>
+          <navigator wx:for="{{categories}}" wx:key="id" class="chip {{selectedCategory === item.id ? 'on' : ''}}" url="{{item.href}}" open-type="redirect" hover-class="none">{{item.name}} ({{item.count}})</navigator>
         </view>
       </scroll-view>
 
@@ -73,7 +73,7 @@
         <view class="dark-btn" style="margin-top: 24rpx;" bindtap="onResetFilters">重置筛选条件</view>
       </view>
       <block wx:else>
-        <view wx:for="{{recipes}}" wx:key="id" class="recipe-card" data-id="{{item.id}}" bindtap="onOpenRecipe">
+        <navigator wx:for="{{recipes}}" wx:key="id" class="recipe-card" url="{{item.href}}" hover-class="none">
           <view class="card-top">
             <view class="meta-row">
               <text class="badge {{item.theme}}">{{item.categoryName}}</text>
@@ -94,14 +94,22 @@
               <text>{{item.calories}} kcal</text>
             </view>
           </view>
-        </view>
+        </navigator>
         <view wx:if="{{totalPages > 1}}" class="pager">
-          <view class="pager-btn {{page <= 1 ? 'disabled' : ''}}" bindtap="onPrevPage">
+          <navigator wx:if="{{page > 1}}" class="pager-btn" url="{{prevPageHref}}" open-type="redirect" hover-class="none">
+            <view class="ic ic-chevron-left"></view>
+            <text>上一页</text>
+          </navigator>
+          <view wx:else class="pager-btn disabled">
             <view class="ic ic-chevron-left"></view>
             <text>上一页</text>
           </view>
           <text class="muted">{{page}} / {{totalPages}}</text>
-          <view class="pager-btn {{page >= totalPages ? 'disabled' : ''}}" bindtap="onNextPage">
+          <navigator wx:if="{{page < totalPages}}" class="pager-btn" url="{{nextPageHref}}" open-type="redirect" hover-class="none">
+            <text>下一页</text>
+            <view class="ic ic-chevron-right"></view>
+          </navigator>
+          <view wx:else class="pager-btn disabled">
             <text>下一页</text>
             <view class="ic ic-chevron-right"></view>
           </view>
@@ -159,7 +167,7 @@
           </view>
         </view>
         <view wx:if="{{recommend.warnings}}" class="warn" style="margin-top: 16rpx;">{{recommend.warnings}}</view>
-        <view wx:for="{{recommend.items}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="onOpenRecipe">
+        <navigator wx:for="{{recommend.items}}" wx:key="id" class="list-row" url="{{item.href}}" hover-class="none">
           <view class="grow">
             <text class="badge {{item.roleTheme}}">{{item.roleLabel}}</text>
             <text class="recipe-name ellipsis">{{item.name}}</text>
@@ -174,7 +182,7 @@
             <text class="link-text">查看</text>
             <view class="ic ic-chevron-right"></view>
           </view>
-        </view>
+        </navigator>
         <view class="primary-btn btn-with-icon" style="width: 100%" bindtap="onAddTableShopping">
           <view class="ic ic-cart-white"></view>
           <text>{{batchLoading ? '正在汇总食材...' : '一键添加整桌食材至采购清单'}}</text>
@@ -201,7 +209,7 @@
       </view>
       <scroll-view class="chips" scroll-x enhanced show-scrollbar="{{false}}">
         <view class="chips-inner">
-          <view wx:for="{{tipGroups}}" wx:key="id" class="chip {{tipGroup === item.id ? 'dark-on' : ''}}" data-id="{{item.id}}" bindtap="onTipGroup">{{item.label}}</view>
+          <navigator wx:for="{{tipGroups}}" wx:key="id" class="chip {{tipGroup === item.id ? 'dark-on' : ''}}" url="{{item.href}}" open-type="redirect" hover-class="none">{{item.label}}</navigator>
         </view>
       </scroll-view>
       <view wx:if="{{tipsLoading}}" class="loading"><text class="muted">正在整理技巧笔记...</text></view>
@@ -211,7 +219,7 @@
         <view class="link-text" style="margin-top: 16rpx;" bindtap="onResetTips">重置筛选</view>
       </view>
       <block wx:else>
-        <view wx:for="{{tips}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="onOpenTip">
+        <navigator wx:for="{{tips}}" wx:key="id" class="list-row" url="{{item.href}}" hover-class="none">
           <view class="grow">
             <text class="badge {{item.theme}}">{{item.badge}}</text>
             <text class="recipe-name ellipsis">{{item.name}}</text>
@@ -221,7 +229,7 @@
             <text class="link-text">阅读</text>
             <view class="ic ic-chevron-right"></view>
           </view>
-        </view>
+        </navigator>
       </block>
     </block>
 
@@ -241,7 +249,7 @@
           <text class="empty-desc">在菜谱卡片或详情页点击书签即可收藏</text>
         </view>
         <block wx:else>
-          <view wx:for="{{favoriteRecipes}}" wx:key="id" class="recipe-card" data-id="{{item.id}}" bindtap="onOpenRecipe">
+          <navigator wx:for="{{favoriteRecipes}}" wx:key="id" class="recipe-card" url="{{item.href}}" hover-class="none">
             <view class="card-top">
               <text class="badge {{item.theme}}">{{item.categoryName}}</text>
               <view class="fav-btn on" catchtap="onToggleFavorite" data-id="{{item.id}}">
@@ -250,7 +258,7 @@
             </view>
             <text class="recipe-name">{{item.name}}</text>
             <text class="recipe-summary">{{clip.short(item.summary)}}</text>
-          </view>
+          </navigator>
         </block>
       </block>
 
@@ -300,7 +308,7 @@
           <text class="empty-title">暂无浏览记录</text>
         </view>
         <block wx:else>
-          <view wx:for="{{recentRecipes}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="onOpenRecipe">
+          <navigator wx:for="{{recentRecipes}}" wx:key="id" class="list-row" url="{{item.href}}" hover-class="none">
             <view class="grow">
               <text class="mini-badge">{{item.categoryName}}</text>
               <text class="recipe-name ellipsis">{{item.name}}</text>
@@ -310,28 +318,28 @@
               <text class="link-text">查看</text>
               <view class="ic ic-chevron-right"></view>
             </view>
-          </view>
+          </navigator>
         </block>
       </block>
     </block>
   </view>
 
   <view class="tabbar">
-    <view class="tab-item {{tab === 'recipes' ? 'on' : ''}}" data-tab="recipes" bindtap="onTab">
+    <navigator class="tab-item {{tab === 'recipes' ? 'on' : ''}}" url="{{tabHrefs.recipes}}" open-type="redirect" hover-class="none">
       <view class="ic tab-icon tab-icon-recipes"></view>
       <text>菜谱</text>
-    </view>
-    <view class="tab-item {{tab === 'recommend' ? 'on' : ''}}" data-tab="recommend" bindtap="onTab">
+    </navigator>
+    <navigator class="tab-item {{tab === 'recommend' ? 'on' : ''}}" url="{{tabHrefs.recommend}}" open-type="redirect" hover-class="none">
       <view class="ic tab-icon tab-icon-recommend"></view>
       <text>智能配菜</text>
-    </view>
-    <view class="tab-item {{tab === 'tips' ? 'on' : ''}}" data-tab="tips" bindtap="onTab">
+    </navigator>
+    <navigator class="tab-item {{tab === 'tips' ? 'on' : ''}}" url="{{tabHrefs.tips}}" open-type="redirect" hover-class="none">
       <view class="ic tab-icon tab-icon-tips"></view>
       <text>烹饪技巧</text>
-    </view>
-    <view class="tab-item {{tab === 'kitchen' ? 'on' : ''}}" data-tab="kitchen" bindtap="onTab">
+    </navigator>
+    <navigator class="tab-item {{tab === 'kitchen' ? 'on' : ''}}" url="{{tabHrefs.kitchen}}" open-type="redirect" hover-class="none">
       <view class="ic tab-icon tab-icon-kitchen"></view>
       <text>我的厨房</text>
-    </view>
+    </navigator>
   </view>
 </view>

@@ -1,3 +1,4 @@
+import { recipeHref } from './seo'
 import type { PeopleRange, RecipeSummary, RecommendItem, ShoppingItem, TipSection, TipSummary } from './types'
 
 export function peopleText(people: PeopleRange | null, style: 'short' | 'range' = 'short'): string {
@@ -35,6 +36,7 @@ export interface RecipeCardVM extends RecipeSummary {
   stars: boolean[]
   theme: string
   showCalories: boolean
+  href: string
 }
 
 export function toRecipeCard(recipe: RecipeSummary, favoriteIds: Set<string>): RecipeCardVM {
@@ -45,6 +47,7 @@ export function toRecipeCard(recipe: RecipeSummary, favoriteIds: Set<string>): R
     stars: starFlags(recipe.difficulty),
     theme: categoryTheme(recipe.category),
     showCalories: recipe.calories > 0,
+    href: recipeHref(recipe.id),
   }
 }
 
@@ -80,6 +83,7 @@ export function toRecommendCard(item: RecommendItem) {
     roleTheme: ROLE_THEME[item.role] || 'theme-meat',
     stars: starFlags(item.difficulty),
     showCalories: item.calories > 0,
+    href: recipeHref(item.id),
   }
 }
 
@@ -212,18 +216,6 @@ export function getNavMetrics() {
     console.warn('getMenuButtonBoundingClientRect failed', error)
   }
   return { statusBarHeight, navBarHeight }
-}
-
-export function openRecipe(id: string) {
-  wx.navigateTo({
-    url: `/pages/kitchen/recipe/index?id=${encodeURIComponent(id)}`,
-  })
-}
-
-export function openTip(id: string) {
-  wx.navigateTo({
-    url: `/pages/kitchen/tip/index?id=${encodeURIComponent(id)}`,
-  })
 }
 
 export function readQueryId(raw?: string): string {

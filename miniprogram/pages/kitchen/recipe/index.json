@@ -1,6 +1,5 @@
 {
   "navigationBarTitleText": "菜谱详情",
-  "navigationStyle": "custom",
   "usingComponents": {
     "timer-bar": "../components/timer-bar/index"
   }

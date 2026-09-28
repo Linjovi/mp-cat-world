@@ -1,13 +1,13 @@
 <view class="page">
   <timer-bar offset-top="{{statusBarHeight + navBarHeight}}" />
-  <view style="padding-top: {{statusBarHeight}}px;">
+  <view class="nav-wrap" style="padding-top: {{statusBarHeight}}px;">
     <view class="nav" style="height: {{navBarHeight}}px;">
       <view class="back" bindtap="handleBack">
         <view class="ic ic-chevron-left-white"></view>
       </view>
       <view class="title-wrap">
         <text class="name">{{name || '跟做模式'}}</text>
-        <text class="sub">跟做模式 · 第 {{index + 1}} / {{total || 1}} 步</text>
+        <text class="sub">第 {{index + 1}} / {{total || 1}} 步</text>
       </view>
       <view class="done-btn {{completed ? 'on' : ''}}" bindtap="onToggleComplete">
         <view class="ic {{completed ? 'ic-check-mint' : 'ic-check-muted'}}"></view>

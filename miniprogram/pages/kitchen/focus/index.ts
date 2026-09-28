@@ -97,7 +97,11 @@ Page({
   },
 
   handleBack() {
-    wx.navigateBack()
+    wx.navigateBack({
+      fail() {
+        wx.reLaunch({ url: '/pages/kitchen/index' })
+      },
+    })
   },
 
   onShareAppMessage() {

@@ -1,5 +1,6 @@
 import { fetchRecipeDetail } from '../lib/api'
 import { getNavMetrics, peopleText, readQueryId, starFlags, toSummary, categoryTheme } from '../lib/format'
+import { recipeHref } from '../lib/seo'
 import { addIngredientsToShoppingList, addRecentView, isFavorite, toggleFavorite } from '../lib/store'
 import type { Ingredient, RecipeDetail } from '../lib/types'
 
@@ -28,7 +29,7 @@ Page({
     tools: [] as string[],
     steps: [] as RecipeDetail['steps'],
     extras: [] as string[],
-    related: [] as RecipeDetail['related'],
+    related: [] as Array<RecipeDetail['related'][number] & { href: string }>,
   },
 
   recipeId: '',
@@ -82,8 +83,9 @@ Page({
           tools: detail.tools || [],
           steps: detail.steps || [],
           extras: detail.extras || [],
-          related: detail.related || [],
+          related: (detail.related || []).map((item) => ({ ...item, href: recipeHref(item.id) })),
         })
+        wx.setNavigationBarTitle({ title: detail.name })
       })
       .catch((error: Error) => {
         this.setData({ loading: false, error: error.message || '加载菜谱详情失败' })
@@ -132,12 +134,6 @@ Page({
       title: count > 0 ? `已添加 ${count} 项原料` : '已在采购清单中',
       icon: 'none',
     })
-  },
-
-  onRelated(event: WechatMiniprogram.TouchEvent) {
-    const id = event.currentTarget.dataset.id as string
-    wx.pageScrollTo({ scrollTop: 0, duration: 200 })
-    this.load(id)
   },
 
   onFocus() {

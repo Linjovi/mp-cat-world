@@ -93,49 +93,6 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
   padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
 }
 
-/* Custom Navigation Bar */
-.nav-bar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  border-bottom: 1rpx solid #E2E8F0;
-  width: 100%;
-
-  .nav-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24rpx;
-
-    .back-btn {
-      width: 64rpx;
-      height: 64rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: #F1F5F9;
-
-      .back-arrow {
-        font-size: 34rpx;
-      }
-    }
-
-    .nav-title {
-      font-size: 34rpx;
-      font-weight: 700;
-      color: #0F172A;
-      letter-spacing: 0.5rpx;
-    }
-
-    .nav-placeholder {
-      width: 64rpx;
-    }
-  }
-}
-
 /* Location Header */
 .location-header {
   padding: 20rpx 28rpx 12rpx;

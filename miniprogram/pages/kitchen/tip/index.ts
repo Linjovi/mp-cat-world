@@ -1,13 +1,11 @@
 import { fetchTipDetail } from '../lib/api'
-import { flattenSections, getNavMetrics, groupLabel, readQueryId } from '../lib/format'
+import { flattenSections, groupLabel, readQueryId } from '../lib/format'
 import type { FlatSection } from '../lib/format'
 
 Page({
   tipId: '',
 
   data: {
-    statusBarHeight: 20,
-    navBarHeight: 44,
     loading: true,
     error: '',
     name: '',
@@ -16,7 +14,6 @@ Page({
   },
 
   onLoad(query: Record<string, string | undefined>) {
-    this.setData(getNavMetrics())
     const id = readQueryId(query.id)
     this.tipId = id
     if (!id) {
@@ -31,6 +28,7 @@ Page({
           groupText: groupLabel(detail.group),
           sections: flattenSections(detail.sections || []),
         })
+        wx.setNavigationBarTitle({ title: detail.name })
       })
       .catch((error: Error) => {
         this.setData({ loading: false, error: error.message || '加载技巧详情失败' })

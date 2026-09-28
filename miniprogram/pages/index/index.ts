@@ -9,7 +9,7 @@ Component({
       {
         id: 'travel',
         className: 'card-sky',
-        url: '/pages/sky/index',
+        url: '/pages/sky/index?loc=hz_xihu',
         icon: 'https://pic1.imgdb.cn/item/6943c1dd2ee916d1a3af9521.png',
         illustration: 'https://pic1.imgdb.cn/item/6943c1dd2ee916d1a3af9520.png',
         name: '出游助手',
@@ -40,6 +40,7 @@ Component({
       this.setData({
         paddingTop: statusBarHeight
       });
+      wx.setNavigationBarTitle({ title: '呼噜呼噜的小世界' });
     }
   },
   methods: {
@@ -55,12 +56,5 @@ Component({
         title: '呼噜呼噜的小世界：出游助手与掌上厨房'
       };
     },
-
-    onAppSelect(e: WechatMiniprogram.TouchEvent) {
-      const url = e.currentTarget.dataset.url;
-      if (url) {
-        wx.navigateTo({ url });
-      }
-    }
   }
 })
