@@ -25,7 +25,7 @@ import {
 import type { Category, RecommendResponse, TipSummary } from './lib/types'
 
 const PAGE_SIZE = 20
-const PEOPLE_PRESETS = [1, 2, 4, 6, 8, 10, 12]
+const PEOPLE_PRESETS = [1, 2, 4, 6, 8, 10]
 const TIP_GROUPS = [
   { id: 'all' as const, label: '全部技巧', href: buildKitchenPath({ tab: 'tips', group: 'all' }) },
   { id: 'basic' as const, label: '厨房常识', href: buildKitchenPath({ tab: 'tips', group: 'basic' }) },
