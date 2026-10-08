@@ -36,7 +36,6 @@ export interface SkyHourSource {
 export interface SkyHourDeepDive extends SkyHourSource {
   metrics: SkyMetric[];
   layers: SkyLayer[];
-  readout: string;
 }
 
 export function getSkyInsightMeta(tab: PhenomenonType): SkyInsightMeta {
@@ -71,14 +70,40 @@ export function getSkyInsightMeta(tab: PhenomenonType): SkyInsightMeta {
 }
 
 export function decorateSkyHour(tab: PhenomenonType, hour: SkyHourSource): SkyHourDeepDive {
-  const metrics = metricsForTab(tab, hour);
   const layers = layersForTab(tab, hour);
+  const taken = layers.map((layer) => layer.title);
+  const metrics: SkyMetric[] = [];
+  for (const metric of metricsForTab(tab, hour)) {
+    const labels = [...taken, ...metrics.map((item) => item.name)];
+    if (labels.includes(metric.name) || overlapsTopic(metric.name, labels)) continue;
+    metrics.push(metric);
+  }
   return {
     ...hour,
     metrics,
     layers,
-    readout: readoutForTab(tab, hour),
   };
+}
+
+const TOPIC_RULES: { key: string; match: RegExp }[] = [
+  { key: 'low-cloud', match: /低云|低空云/ },
+  { key: 'mid-cloud', match: /中空云|中高云/ },
+  { key: 'high-cloud', match: /高空云|总云量/ },
+  { key: 'humidity', match: /湿度|结露/ },
+  { key: 'precip', match: /降水/ },
+  { key: 'visibility', match: /能见度/ },
+  { key: 'wind', match: /风力|风速/ },
+  { key: 'feel', match: /体感/ },
+];
+
+function topicsOf(label: string): string[] {
+  return TOPIC_RULES.filter((rule) => rule.match.test(label)).map((rule) => rule.key);
+}
+
+function overlapsTopic(label: string, others: string[]): boolean {
+  const keys = topicsOf(label);
+  if (keys.length === 0) return false;
+  return others.some((other) => topicsOf(other).some((key) => keys.includes(key)));
 }
 
 function metricsForTab(tab: PhenomenonType, hour: SkyHourSource): SkyMetric[] {
@@ -161,27 +186,6 @@ function layersForTab(tab: PhenomenonType, hour: SkyHourSource): SkyLayer[] {
     { title: '中空云 (2000-6000m)', pct: hour.cloudMid, kind: 'mid-cloud' },
     { title: '低空云 (0-2000m·云海层)', pct: hour.cloudLow, kind: 'low-cloud' },
   ];
-}
-
-function readoutForTab(tab: PhenomenonType, hour: SkyHourSource): string {
-  if (tab === 'travel_weather') {
-    const feels = Math.round(hour.apparentTemp ?? hour.temp);
-    const wind =
-      hour.gusts === undefined
-        ? `风速 ${hour.windSpeed}km/h`
-        : `阵风 ${Math.round(hour.gusts)}km/h`;
-    return `体感 ${feels}℃，降水概率 ${hour.precipProb}%，${wind}，能见度 ${hour.visibilityKm}km。`;
-  }
-  if (tab === 'sunrise' || tab === 'sunrise_glow') {
-    return `东向低云 ${hour.cloudLow}%，总云量 ${hour.cloudTotal}%，能见度 ${hour.visibilityKm}km。`;
-  }
-  if (tab === 'sunset_glow') {
-    return `西向低云 ${hour.cloudLow}%，中高云画布 ${midHighCanvas(hour)}%，能见度 ${hour.visibilityKm}km。`;
-  }
-  if (tab === 'starry_sky') {
-    return `总云量 ${hour.cloudTotal}%，湿度 ${hour.humidity}%，能见度 ${hour.visibilityKm}km。`;
-  }
-  return `低云 ${hour.cloudLow}%，湿度 ${hour.humidity}%，中高云 ${midHighCanvas(hour)}%，能见度 ${hour.visibilityKm}km。`;
 }
 
 function midHighCanvas(hour: SkyHourSource): number {

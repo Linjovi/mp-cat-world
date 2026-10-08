@@ -661,6 +661,47 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
       }
     }
   }
+
+  .hero-day-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 14rpx;
+    padding-top: 4rpx;
+
+    .day-fact {
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+    }
+
+    .fact-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16rpx;
+    }
+
+    .fact-name {
+      font-size: 22rpx;
+      color: #64748B;
+      line-height: 1.4;
+    }
+
+    .fact-val {
+      font-size: 24rpx;
+      font-weight: 700;
+      font-family: monospace;
+      color: #0F172A;
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    .fact-hint {
+      font-size: 21rpx;
+      color: #94A3B8;
+      line-height: 1.45;
+    }
+  }
 }
 
 /* Card Common Section */
@@ -714,125 +755,6 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-      }
-    }
-  }
-}
-
-/* Factors Grid */
-.factors-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-
-  .factor-item {
-    background: #F8FAFC;
-    border: 1rpx solid #E2E8F0;
-    border-radius: 18rpx;
-    padding: 16rpx 20rpx;
-    display: flex;
-    flex-direction: column;
-    gap: 8rpx;
-
-    .factor-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .factor-name-row {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8rpx;
-        flex: 1;
-        min-width: 0;
-
-        .factor-weight {
-          font-size: 18rpx;
-          background: #E2E8F0;
-          color: #475569;
-          padding: 2rpx 8rpx;
-          border-radius: 6rpx;
-          font-weight: 600;
-        }
-
-        .factor-name {
-          font-size: 24rpx;
-          font-weight: 700;
-          color: #1E293B;
-          line-height: 1.4;
-          white-space: normal;
-          word-break: break-word;
-        }
-      }
-
-      .factor-status-badge {
-        font-size: 20rpx;
-        font-weight: 700;
-        padding: 4rpx 12rpx;
-        border-radius: 10rpx;
-        display: flex;
-        align-items: center;
-        gap: 8rpx;
-        flex-shrink: 0;
-        white-space: nowrap;
-
-        .status-dot {
-          width: 10rpx;
-          height: 10rpx;
-          border-radius: 50%;
-          background: currentColor;
-          flex-shrink: 0;
-        }
-
-        &.status-optimal {
-          background: #D1FAE5;
-          color: #065F46;
-        }
-        &.status-good {
-          background: #E0F2FE;
-          color: #0369A1;
-        }
-        &.status-moderate {
-          background: #FEF3C7;
-          color: #92400E;
-        }
-        &.status-unfavorable {
-          background: #F1F5F9;
-          color: #64748B;
-        }
-      }
-    }
-
-    .factor-bottom {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 6rpx 12rpx;
-
-      .factor-val {
-        font-size: 26rpx;
-        font-weight: 800;
-        font-family: monospace;
-        color: #0F172A;
-        line-height: 1.4;
-        max-width: 100%;
-        white-space: normal;
-        word-break: break-word;
-      }
-
-      /* 基准宽度取整段文案的单行宽度：能和数值并排就右侧同行显示，
-         放不下时整段折到下一行，占满宽度并左对齐 */
-      .factor-hint {
-        font-size: 22rpx;
-        color: #64748B;
-        text-align: left;
-        flex: 0 1 auto;
-        min-width: 0;
-        line-height: 1.4;
-        white-space: normal;
-        word-break: break-word;
       }
     }
   }
@@ -1023,16 +945,71 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
     flex-direction: column;
     gap: 16rpx;
 
-    .sky-hour-detail {
-      background: #F8FAFC;
-      border: 1rpx solid #E2E8F0;
-      border-radius: 20rpx;
-      padding: 18rpx;
+    .hour-note-grid {
       display: flex;
       flex-direction: column;
-      gap: 16rpx;
+      gap: 10rpx;
+    }
 
-      .sky-detail-metrics {
+    .hour-note {
+      padding: 12rpx 0 12rpx 16rpx;
+      border-left: 6rpx solid #CBD5E1;
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+
+      &.tone-optimal {
+        border-left-color: #059669;
+      }
+      &.tone-good {
+        border-left-color: #0284C7;
+      }
+      &.tone-moderate {
+        border-left-color: #D97706;
+      }
+      &.tone-unfavorable {
+        border-left-color: #94A3B8;
+      }
+
+      .note-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16rpx;
+      }
+
+      .note-name {
+        font-size: 22rpx;
+        color: #64748B;
+        line-height: 1.4;
+      }
+
+      .note-val {
+        font-size: 24rpx;
+        font-weight: 700;
+        font-family: monospace;
+        color: #0F172A;
+        text-align: right;
+        flex-shrink: 0;
+      }
+
+      .note-desc {
+        font-size: 21rpx;
+        color: #94A3B8;
+        line-height: 1.45;
+      }
+    }
+
+      .sky-hour-detail {
+        background: #F8FAFC;
+        border: 1rpx solid #E2E8F0;
+        border-radius: 20rpx;
+        padding: 18rpx;
+        display: flex;
+        flex-direction: column;
+        gap: 16rpx;
+
+        .sky-detail-metrics {
         display: flex;
         flex-wrap: wrap;
         gap: 12rpx;
@@ -1056,12 +1033,6 @@ $i-sunset: "%3Cpath d='M12 10V2'/%3E%3Cpath d='m4.93 10.93 1.41 1.41'/%3E%3Cpath
             font-family: monospace;
           }
         }
-      }
-
-      .sky-hour-readout {
-        font-size: 22rpx;
-        color: #475569;
-        line-height: 1.5;
       }
 
       .cloud-bars-container {

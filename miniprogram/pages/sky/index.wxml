@@ -142,37 +142,15 @@
           <text>{{currentPrediction.countdownHint}}</text>
         </view>
       </view>
-    </view>
 
-    <!-- Meteorological Factors Grid Card -->
-    <view class="card-section">
-      <view class="section-header">
-        <view class="section-title-wrap">
-          <text class="section-title">气象成因核心指标</text>
-        </view>
-        <text class="section-hint">ECMWF / GFS 高精度解算</text>
-      </view>
-
-      <view class="factors-grid">
+      <view wx:if="{{currentPrediction.factors.length}}" class="hero-day-facts">
         <block wx:for="{{currentPrediction.factors}}" wx:key="name">
-          <view class="factor-item factor-status-{{item.status}}">
-            <view class="factor-top">
-              <view class="factor-name-row">
-                <text wx:if="{{item.weightLabel}}" class="factor-weight">{{item.weightLabel}}</text>
-                <text class="factor-name">{{item.name}}</text>
-              </view>
-              <view class="factor-status-badge status-{{item.status}}">
-                <view class="status-dot"></view>
-                <text wx:if="{{item.status === 'optimal'}}">极佳</text>
-                <text wx:elif="{{item.status === 'good'}}">良好</text>
-                <text wx:elif="{{item.status === 'moderate'}}">一般</text>
-                <text wx:else>不利</text>
-              </view>
+          <view class="day-fact">
+            <view class="fact-line">
+              <text class="fact-name">{{item.name}}</text>
+              <text class="fact-val">{{item.value}}</text>
             </view>
-            <view class="factor-bottom">
-              <text class="factor-val">{{item.value}}</text>
-              <text class="factor-hint">{{item.hint}}</text>
-            </view>
+            <text class="fact-hint">{{item.hint}}</text>
           </view>
         </block>
       </view>
@@ -218,8 +196,7 @@
         </view>
       </scroll-view>
 
-      <!-- Selected-hour Deep Dive (shares the hour picked on the trend bar) -->
-      <view wx:if="{{activeSkyHourData}}" class="trend-deep-dive">
+      <view wx:if="{{activeHourData || activeSkyHourData}}" class="trend-deep-dive">
         <view class="advice-header" bindtap="toggleSkyTimeline">
           <view class="advice-title-wrap">
             <view class="ic ic-layers advice-icon"></view>
@@ -232,7 +209,19 @@
         </view>
 
         <view wx:if="{{showSkyTimeline}}" class="sky-timeline-body">
-          <view class="sky-hour-detail">
+          <view wx:if="{{activeHourData && activeHourData.factors.length}}" class="hour-note-grid">
+            <block wx:for="{{activeHourData.factors}}" wx:key="name">
+              <view class="hour-note tone-{{item.status}}">
+                <view class="note-head">
+                  <text class="note-name">{{item.name}}</text>
+                  <text class="note-val">{{item.value}}</text>
+                </view>
+                <text class="note-desc">{{item.hint}}</text>
+              </view>
+            </block>
+          </view>
+
+          <view wx:if="{{activeSkyHourData}}" class="sky-hour-detail">
             <view class="sky-detail-metrics">
               <block wx:for="{{activeSkyHourData.metrics}}" wx:key="name">
                 <view class="metric-pill">
@@ -241,8 +230,6 @@
                 </view>
               </block>
             </view>
-
-            <view class="sky-hour-readout">{{activeSkyHourData.readout}}</view>
 
             <view class="cloud-bars-container">
               <block wx:for="{{activeSkyHourData.layers}}" wx:key="title">

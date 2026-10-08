@@ -33,13 +33,11 @@ const TIP_GROUPS = [
   { id: 'advanced' as const, label: '进阶秘诀', href: buildKitchenPath({ tab: 'tips', group: 'advanced' }) },
 ]
 
-function kitchenTabHrefs() {
-  return {
-    recipes: buildKitchenPath({ tab: 'recipes' }),
-    recommend: buildKitchenPath({ tab: 'recommend' }),
-    tips: buildKitchenPath({ tab: 'tips' }),
-    kitchen: buildKitchenPath({ tab: 'kitchen' }),
-  }
+const TAB_HREFS = {
+  recipes: buildKitchenPath({ tab: 'recipes' }),
+  recommend: buildKitchenPath({ tab: 'recommend' }),
+  tips: buildKitchenPath({ tab: 'tips' }),
+  kitchen: buildKitchenPath({ tab: 'kitchen' }),
 }
 
 Page({
@@ -94,7 +92,7 @@ Page({
     allCategoryHref: buildKitchenPath({ tab: 'recipes' }),
     prevPageHref: buildKitchenPath({ tab: 'recipes' }),
     nextPageHref: buildKitchenPath({ tab: 'recipes', page: 2 }),
-    tabHrefs: kitchenTabHrefs(),
+    tabHrefs: TAB_HREFS,
   },
 
   searchTimer: 0 as unknown as number,
@@ -218,16 +216,18 @@ Page({
   syncKitchen() {
     const favorites = favoriteIdSet()
     const shopping = getShoppingList()
+    const favoriteList = getFavorites()
+    const recentList = getRecentViews()
     const recipes = this.data.recipes.map((item) => ({ ...item, favorite: favorites.has(item.id) }))
     this.setData({
       recipes,
-      favoriteRecipes: getFavorites().map((item) => toRecipeCard(item, favorites)),
-      favoriteCount: getFavorites().length,
+      favoriteRecipes: favoriteList.map((item) => toRecipeCard(item, favorites)),
+      favoriteCount: favoriteList.length,
       shoppingGroups: groupShopping(shopping),
       shoppingCount: shopping.length,
       completedCount: shopping.filter((item) => item.completed).length,
-      recentRecipes: getRecentViews().map((item) => toRecipeCard(item, favorites)),
-      recentCount: getRecentViews().length,
+      recentRecipes: recentList.map((item) => toRecipeCard(item, favorites)),
+      recentCount: recentList.length,
     })
   },
 

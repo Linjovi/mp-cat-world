@@ -104,7 +104,6 @@ export interface EvaluationFactor {
   value: string;
   status: FactorStatus;
   hint: string;
-  weightLabel?: string;
 }
 
 export interface PhenomenonPrediction {
@@ -128,6 +127,8 @@ export interface PhenomenonPrediction {
     score: number;
     cloudCover: number;
     detail: string;
+    /** 这一小时会变化的成因；海拔、月相、紫外线等全天不变项留在 factors */
+    factors: EvaluationFactor[];
   }[];
 }
 

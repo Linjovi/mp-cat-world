@@ -27,29 +27,34 @@ test('不同景象使用不同剖析标题', () => {
   assert.match(getSkyInsightMeta('sunset_glow').title, /晚霞/);
 });
 
-test('徒步剖析突出体感与降水，不展示分层云量条', () => {
+test('徒步标签不含已在柱状图里的降水和湿度', () => {
   const dive = decorateSkyHour('travel_weather', hour);
   assert.ok(dive.metrics.some((m) => m.name === '体感' && m.value === '17°C'));
+  assert.equal(dive.metrics.some((m) => /降水|湿度/.test(m.name)), false);
+  assert.ok(dive.layers.some((layer) => layer.kind === 'precip' && layer.pct === 12));
   assert.ok(dive.layers.every((layer) => layer.kind !== 'low-cloud'));
-  assert.match(dive.readout, /降水概率 12%/);
+  assert.equal('readout' in dive, false);
 });
 
-test('云海剖析保留高中低三层云量', () => {
+test('云海用三层云量柱，标签不再重复低云中高云', () => {
   const dive = decorateSkyHour('cloud_sea', hour);
   assert.equal(dive.layers.length, 3);
   assert.equal(dive.layers[2].pct, 72);
-  assert.match(dive.readout, /低云 72%/);
+  assert.equal(dive.metrics.some((m) => /低云|中高云|高空云/.test(m.name)), false);
+  assert.equal(dive.metrics.some((m) => m.name.includes('湿度')), true);
+  assert.equal(dive.metrics.some((m) => m.name.includes('垂直层结')), false);
 });
 
-test('日出剖析强调东向低云与总云量', () => {
+test('日出低云和总云量只出现在柱状图', () => {
   const dive = decorateSkyHour('sunrise', hour);
-  assert.ok(dive.metrics.some((m) => m.name === '东向低云'));
+  assert.equal(dive.metrics.some((m) => m.name.includes('低云') || m.name.includes('总云量')), false);
   assert.ok(dive.layers.some((layer) => layer.title.includes('东向低云')));
+  assert.ok(dive.layers.some((layer) => layer.title.includes('总云量')));
 });
 
-test('晚霞剖析强调西向低云与中高云画布', () => {
+test('晚霞西向低云与中高云只出现在柱状图', () => {
   const dive = decorateSkyHour('sunset_glow', hour);
-  assert.ok(dive.metrics.some((m) => m.name === '西向低云'));
+  assert.equal(dive.metrics.some((m) => /低云|中高云/.test(m.name)), false);
   assert.equal(
     dive.layers.find((layer) => layer.title.includes('中高云'))?.pct,
     15

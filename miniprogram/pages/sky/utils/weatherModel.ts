@@ -60,6 +60,115 @@ function averageFinite(values: (number | null | undefined)[]): number | undefine
   return finite.reduce((sum, value) => sum + value, 0) / finite.length;
 }
 
+function peakScore(scores: { score: number }[]): number {
+  return scores.reduce((max, item) => Math.max(max, item.score), 0);
+}
+
+/**
+ * 低云是云海的硬条件：铺不满山谷就不能拿满分。
+ * 50% 只是局地碎云/谷雾，上限约 60；80–95% 才允许到 100。
+ */
+export function cloudSeaCoverageCeiling(cloudLow: number): number {
+  if (cloudLow >= 80 && cloudLow <= 95) return 100;
+  if (cloudLow >= 70) return 88;
+  if (cloudLow >= 65) return 80;
+  if (cloudLow >= 55) return 72;
+  if (cloudLow >= 45) return 60;
+  if (cloudLow >= 25) return 45;
+  return 28;
+}
+
+type HourSlice = EvaluationContext['hourly'][number];
+
+/** 气压层湿度和云量只做小幅修正，避免和地面湿度、低云重复计太高。 */
+function boundaryLayerMoisture(h: HourSlice): { delta: number; note: string } {
+  const rh = h.relativeHumidity925 ?? h.relativeHumidity850 ?? h.relativeHumidity700;
+  const cloud = h.cloud925 ?? h.cloud850 ?? h.cloud700;
+  if (rh === undefined && cloud === undefined) {
+    return { delta: 0, note: '气压层湿度与云量数据缺失' };
+  }
+  let delta = 0;
+  const notes: string[] = [];
+  if (rh === undefined) {
+    notes.push('气压层湿度数据缺失');
+  } else if (rh >= 90) {
+    delta += 3;
+    notes.push(`气压层湿度 ${Math.round(rh)}%，低层水汽充足`);
+  } else if (rh >= 70) {
+    delta += 1;
+    notes.push(`气压层湿度 ${Math.round(rh)}%`);
+  } else if (rh < 45) {
+    delta -= 3;
+    notes.push(`气压层湿度仅 ${Math.round(rh)}%，水汽偏干`);
+  } else {
+    notes.push(`气压层湿度 ${Math.round(rh)}%`);
+  }
+  if (cloud === undefined) {
+    notes.push('气压层云量数据缺失');
+  } else if (cloud >= 70) {
+    delta += 2;
+    notes.push(`气压层云量 ${Math.round(cloud)}%，云层有厚度`);
+  } else if (cloud < 20) {
+    delta -= 1;
+    notes.push(`气压层云量 ${Math.round(cloud)}%，云层偏薄`);
+  } else {
+    notes.push(`气压层云量 ${Math.round(cloud)}%`);
+  }
+  return { delta: Math.max(-4, Math.min(4, delta)), note: notes.join('；') };
+}
+
+/** 灰霾只扣分：日轮锐度和星空通透度都怕高 PM2.5 / 高 AOD，不像晚霞那样吃适度散射。 */
+function hazePenalty(pm2_5?: number, aod?: number): { delta: number; notes: string[] } {
+  if (pm2_5 === undefined && aod === undefined) {
+    return { delta: 0, notes: ['空气质量数据暂缺，未做通透修正'] };
+  }
+  let delta = 0;
+  const notes: string[] = [];
+  if (pm2_5 !== undefined) {
+    if (pm2_5 <= 35) notes.push(`PM2.5 ${Math.round(pm2_5)}，空气较干净`);
+    else if (pm2_5 <= 75) {
+      delta -= 3;
+      notes.push(`PM2.5 ${Math.round(pm2_5)}，轻度灰霾`);
+    } else if (pm2_5 <= 115) {
+      delta -= 6;
+      notes.push(`PM2.5 ${Math.round(pm2_5)}，中度污染，轮廓发软`);
+    } else {
+      delta -= 10;
+      notes.push(`PM2.5 ${Math.round(pm2_5)}，重度灰霾`);
+    }
+  }
+  if (aod !== undefined) {
+    if (aod <= 0.35) notes.push(`AOD ${aod.toFixed(2)}，对通透度影响有限`);
+    else if (aod <= 0.8) {
+      delta -= 4;
+      notes.push(`AOD ${aod.toFixed(2)}，低空发蒙`);
+    } else {
+      delta -= 8;
+      notes.push(`AOD ${aod.toFixed(2)}，灰霾明显`);
+    }
+  }
+  return { delta: Math.max(-12, delta), notes };
+}
+
+/** 徒步时段的日照负荷：夜间为 0；云量会削弱当日紫外线，避免阴天仍按晴空暴晒扣分。 */
+function hikingDaylightUvScore(hourNum: number, uv: number, cloudTotal: number): number {
+  if (hourNum < 6 || hourNum > 19) return 0;
+  let daylight = 0.85;
+  if (hourNum <= 6 || hourNum >= 19) daylight = 0.45;
+  else if (hourNum <= 7 || hourNum >= 18) daylight = 0.7;
+  else if (hourNum >= 10 && hourNum <= 15) daylight = 1;
+  const shade = Math.min(1, Math.max(0, cloudTotal) / 100);
+  const effectiveUv = Math.max(0, uv) * (1 - 0.7 * shade) * daylight;
+  let points = 8;
+  if (effectiveUv <= 2) points = 15;
+  else if (effectiveUv <= 4) points = 12;
+  else if (effectiveUv <= 6) points = 8;
+  else if (effectiveUv <= 8) points = 4;
+  else points = 0;
+  if (daylight < 1) points = Math.min(points, Math.round(15 * daylight));
+  return points;
+}
+
 export interface AlignedAirQualityHour {
   pm2_5: number | undefined;
   aod: number | undefined;
@@ -207,73 +316,10 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
   const sample = morningHours.length > 0 ? morningHours : ctx.hourly.slice(5, 9);
 
   const avgHumidity = Math.round(sample.reduce((s, h) => s + h.humidity, 0) / (sample.length || 1));
-  const avgCloudLow = Math.round(sample.reduce((s, h) => s + h.cloudLow, 0) / (sample.length || 1));
-  const avgCloudMid = Math.round(sample.reduce((s, h) => s + h.cloudMid, 0) / (sample.length || 1));
-  const avgCloudHigh = Math.round(sample.reduce((s, h) => s + h.cloudHigh, 0) / (sample.length || 1));
   const avgWind = Math.round(sample.reduce((s, h) => s + h.windSpeed, 0) / (sample.length || 1));
-  const avgPrecipProb = Math.round(sample.reduce((s, h) => s + h.precipProb, 0) / (sample.length || 1));
-  const avgDewSpread = Math.round(sample.reduce((s, h) => s + Math.abs(h.temp - h.dewPoint), 0) / (sample.length || 1));
-  const avgGusts = averageFinite(sample.map((h) => h.gusts));
-  const avgPressureMsl = averageFinite(sample.map((h) => h.pressureMsl));
-  const avgTemperature925 = averageFinite(sample.map((h) => h.temperature925));
-  const avgTemperature850 = averageFinite(sample.map((h) => h.temperature850));
-  const avgTemperature700 = averageFinite(sample.map((h) => h.temperature700));
-  const avgRelativeHumidity925 = averageFinite(sample.map((h) => h.relativeHumidity925));
-  const avgRelativeHumidity850 = averageFinite(sample.map((h) => h.relativeHumidity850));
-  const avgRelativeHumidity700 = averageFinite(sample.map((h) => h.relativeHumidity700));
-  const avgCloud925 = averageFinite(sample.map((h) => h.cloud925));
-  const avgCloud850 = averageFinite(sample.map((h) => h.cloud850));
-  const avgCloud700 = averageFinite(sample.map((h) => h.cloud700));
-  const avgConvectiveCloudBase = averageFinite(sample.map((h) => h.convectiveCloudBase));
-  const verticalAdjustment = evaluateCloudSeaVerticalAdjustment({
-    surfaceTemperature: averageFinite(sample.map((h) => h.temp)),
-    temperature925hPa: avgTemperature925,
-    temperature850hPa: avgTemperature850,
-    temperature700hPa: avgTemperature700,
-    convectiveCloudBase: avgConvectiveCloudBase,
-    observerElevation: ctx.elevation,
-    windGusts: avgGusts,
-    pressureMsl: avgPressureMsl,
-  });
-
-  // Base score algorithm
-  let score = 20;
-
-  // 1. Low cloud coverage (ideal is 60% - 95% low cloud layer acting as the cloud sea blanket)
-  if (avgCloudLow >= 65 && avgCloudLow <= 95) score += 32;
-  else if (avgCloudLow >= 45 && avgCloudLow < 65) score += 22;
-  else if (avgCloudLow > 95) score += 18; // slightly thick, but might breach summit
-  else if (avgCloudLow >= 25) score += 12;
-
-  // 2. High humidity & small dew point spread (fog / condensation formation)
-  if (avgHumidity >= 85) score += 24;
-  else if (avgHumidity >= 70) score += 16;
-  else if (avgHumidity >= 55) score += 8;
-
-  if (avgDewSpread <= 2.5) score += 12;
-  else if (avgDewSpread <= 4.5) score += 6;
-
-  // 3. Mid/High cloud clearance (above the cloud sea, sky must be clear/sunny)
-  const overheadCloud = (avgCloudMid + avgCloudHigh) / 2;
-  if (overheadCloud <= 25) score += 18;
-  else if (overheadCloud <= 50) score += 10;
-  else score -= 8; // covered by high overcast
-
-  // 4. Wind stability (calm winds let clouds pool in the valleys, strong wind tears it apart)
-  if (avgWind <= 12) score += 10;
-  else if (avgWind <= 20) score += 4;
-  else if (avgWind > 28) score -= 15;
-
-  // 5. Elevation bonus (cloud seas usually form at 800m - 2000m)
   const elevation = ctx.elevation;
-  if (elevation !== undefined) {
-    if (elevation >= 800) score += 6;
-    if (elevation >= 1300) score += 4;
-    if (elevation < 200) score -= 8; // flat terrain rarely has mountain cloud sea
-  }
 
-  // Heavy rain penalty
-  // 1. Calculate effective window duration for mountain cloud sea
+  // 稳定窗口是全天尺度的持续时间，不参与总分；总分只取分时最高分
   let windowMinutes = 120;
   if (avgWind <= 12 && avgHumidity >= 80) {
     windowMinutes = 180;
@@ -285,23 +331,18 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
     windowMinutes = 40;
   }
 
-  let windowFactor = 0.90;
   let windowStatus: 'optimal' | 'good' | 'moderate' = 'good';
   let windowLabel = '适中稳定';
   if (windowMinutes >= 150) {
-    windowFactor = 0.98;
     windowStatus = 'optimal';
     windowLabel = '绵延充裕';
   } else if (windowMinutes >= 100) {
-    windowFactor = 0.90;
     windowStatus = 'good';
     windowLabel = '适中稳定';
   } else if (windowMinutes >= 60) {
-    windowFactor = 0.82;
     windowStatus = 'moderate';
     windowLabel = '窗口偏短·消散快';
   } else {
-    windowFactor = 0.70;
     windowStatus = 'moderate';
     windowLabel = '稍纵即散';
   }
@@ -310,26 +351,43 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
   const bestTimeStart = shiftTimeString(sunriseHHMM, -40);
   const bestTimeEnd = shiftTimeString(sunriseHHMM, Math.min(180, windowMinutes));
 
-  // 2. Hourly curve based on atmospheric stability & temperature inversion
   const rawHourlyScores = ctx.hourly.map((h) => {
-    let hScore = 20;
-    if (h.cloudLow >= 60 && h.cloudLow <= 95) hScore += 30;
-    else if (h.cloudLow >= 40) hScore += 18;
-    else if (h.cloudLow >= 20) hScore += 8;
+    let hScore = 8;
+    if (h.cloudLow >= 65 && h.cloudLow <= 95) hScore += 32;
+    else if (h.cloudLow >= 45 && h.cloudLow < 65) hScore += 18;
+    else if (h.cloudLow > 95) hScore += 16;
+    else if (h.cloudLow >= 25) hScore += 8;
 
-    if (h.humidity >= 85) hScore += 24;
-    else if (h.humidity >= 70) hScore += 15;
+    if (h.humidity >= 85) hScore += 18;
+    else if (h.humidity >= 70) hScore += 12;
     else if (h.humidity >= 55) hScore += 6;
 
+    const dewSpread = Math.abs(h.temp - h.dewPoint);
+    if (dewSpread <= 2.5) hScore += 6;
+    else if (dewSpread <= 4.5) hScore += 3;
+
     const overHead = (h.cloudMid + h.cloudHigh) / 2;
-    if (overHead <= 25) hScore += 16;
+    if (overHead <= 25) hScore += 14;
     else if (overHead <= 50) hScore += 8;
+    else hScore -= 8;
 
-    if (h.windSpeed <= 12) hScore += 10;
-    else if (h.windSpeed > 24) hScore -= 12;
+    if (h.windSpeed <= 12) hScore += 8;
+    else if (h.windSpeed <= 20) hScore += 3;
+    else if (h.windSpeed > 28) hScore -= 15;
 
-    if (elevation !== undefined && elevation >= 800) hScore += 6;
-    if (h.precipProb > 70) hScore -= 20;
+    if (elevation !== undefined) {
+      if (elevation >= 800) hScore += 3;
+      if (elevation >= 1300) hScore += 2;
+      if (elevation < 200) hScore -= 8;
+    }
+
+    const raining = h.precip > 1 || h.precipProb > 70 || h.code >= 61;
+    if (raining) hScore -= 22;
+    else if (h.precip > 0.2 || h.precipProb > 40) hScore -= 10;
+    if (h.code >= 45 && h.code <= 48 && h.precipProb <= 30) hScore += 4;
+
+    const moisture = boundaryLayerMoisture(h);
+    hScore += moisture.delta;
 
     let timeFactor = 0.40;
     let timeLabel = '非活跃期';
@@ -358,8 +416,12 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
       windGusts: h.gusts,
       pressureMsl: h.pressureMsl,
     });
-    const baseScore = Math.round(hScore * timeFactor);
-    const combined = clampScore(baseScore + hourlyVerticalAdjustment.delta);
+    const combined = clampScore(
+      Math.min(
+        Math.round(hScore * timeFactor) + hourlyVerticalAdjustment.delta,
+        cloudSeaCoverageCeiling(h.cloudLow)
+      )
+    );
 
     return {
       hour: h.time,
@@ -367,19 +429,34 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
       score: combined,
       cloudCover: h.cloudTotal,
       detail: timeLabel,
-      isMorningPeak: h.hourNum >= 5 && h.hourNum <= 8,
-      baseScore,
+      factors: [
+        {
+          name: '近地相对湿度',
+          value: `${Math.round(h.humidity)}%`,
+          status: h.humidity >= 80 ? 'optimal' : h.humidity >= 65 ? 'good' : 'moderate',
+          hint: `露点温差 ${dewSpread.toFixed(1)}°C。${
+            h.humidity >= 80 ? '湿度接近饱和，利于水汽凝结' : '水汽略干，云海不易铺满'
+          }`,
+        },
+        {
+          name: '垂直层结 / 云底 / 阵风',
+          value:
+            hourlyVerticalAdjustment.delta === 0
+              ? '未修正'
+              : `${hourlyVerticalAdjustment.delta > 0 ? '+' : ''}${hourlyVerticalAdjustment.delta} 分`,
+          status:
+            hourlyVerticalAdjustment.delta > 2
+              ? 'optimal'
+              : hourlyVerticalAdjustment.delta < -2
+                ? 'unfavorable'
+                : 'moderate',
+          hint: [...hourlyVerticalAdjustment.notes, moisture.note].join('；'),
+        },
+      ] as EvaluationFactor[],
     };
   });
 
-  const peakMorningScore = Math.max(...rawHourlyScores.map((r) => r.score), 0);
-  const peakMorningBaseScore = Math.max(...rawHourlyScores.map((r) => r.baseScore), 0);
-
-  // 3. Daily score derived from peak morning intensity discounted by window duration factor
-  let dailyScore = Math.round(peakMorningBaseScore * windowFactor);
-  if (avgPrecipProb > 70) dailyScore = Math.round(dailyScore * 0.75);
-  dailyScore = clampScore(dailyScore + verticalAdjustment.delta);
-  dailyScore = Math.min(peakMorningScore, dailyScore);
+  const dailyScore = peakScore(rawHourlyScores);
 
   // Determine level
   let level: PhenomenonPrediction['level'] = 'poor';
@@ -406,35 +483,13 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
 
   const factors: EvaluationFactor[] = [
     {
-      name: '低层云被覆盖度',
-      value: `${avgCloudLow}%`,
-      status: avgCloudLow >= 60 ? 'optimal' : avgCloudLow >= 35 ? 'good' : 'moderate',
-      hint: avgCloudLow >= 60 ? '低云聚集充沛，具备云海厚度' : '低层云量偏少，可能仅有轻雾',
-      weightLabel: '核心'
-    },
-    {
-      name: '近地相对湿度',
-      value: `${avgHumidity}%`,
-      status: avgHumidity >= 80 ? 'optimal' : avgHumidity >= 65 ? 'good' : 'moderate',
-      hint: avgHumidity >= 80 ? '湿度接近饱和，极利于水汽凝结' : '水汽略显干燥，凝聚慢',
-      weightLabel: '核心'
-    },
-    {
       name: '逆温层稳定持续窗口',
-      value: `约${windowMinutes}分钟 · ${windowLabel} (系数${Math.round(windowFactor * 100)}%)`,
+      value: `约${windowMinutes}分钟 · ${windowLabel}`,
       status: windowStatus,
       hint:
         windowMinutes >= 120
           ? '山谷逆温层稳固，云海漫延从容持久，观赏拍摄容错高'
           : '受风速或升温影响，云海消散较快，建议抢占日出首发窗口',
-      weightLabel: '窗口'
-    },
-    {
-      name: '高空晴朗透光度',
-      value: `${Math.round(100 - overheadCloud)}%`,
-      status: overheadCloud <= 30 ? 'optimal' : overheadCloud <= 60 ? 'good' : 'unfavorable',
-      hint: overheadCloud <= 30 ? '头顶碧空万里，蓝天云海对比鲜明' : '中高层有云遮挡部分阳光',
-      weightLabel: '关键'
     },
     {
       name: '地形海拔契合度',
@@ -453,44 +508,10 @@ function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
           : elevation >= 800
             ? '海拔高于常规逆温凝结层'
             : '地势较低，建议登至高处眺望',
-      weightLabel: '地形'
     },
-    {
-      name: '垂直层结 / 云底 / 阵风',
-      value:
-        verticalAdjustment.delta === 0
-          ? '未修正'
-          : `${verticalAdjustment.delta > 0 ? '+' : ''}${verticalAdjustment.delta} 分`,
-      status:
-        verticalAdjustment.delta > 2
-          ? 'optimal'
-          : verticalAdjustment.delta < -2
-            ? 'unfavorable'
-            : 'moderate',
-      hint: [
-        ...verticalAdjustment.notes,
-        avgRelativeHumidity925 === undefined &&
-        avgRelativeHumidity850 === undefined &&
-        avgRelativeHumidity700 === undefined
-          ? '气压层湿度数据缺失'
-          : `气压层湿度约 ${Math.round(
-              avgRelativeHumidity925 ?? avgRelativeHumidity850 ?? avgRelativeHumidity700 ?? 0
-            )}%`,
-        avgCloud925 === undefined && avgCloud850 === undefined && avgCloud700 === undefined
-          ? '气压层云量数据缺失'
-          : `气压层云量约 ${Math.round(avgCloud925 ?? avgCloud850 ?? avgCloud700 ?? 0)}%`,
-      ].join('；'),
-      weightLabel: '辅助'
-    }
   ];
 
-  const hourlyScores = rawHourlyScores.map((item) => ({
-    hour: item.hour,
-    displayHour: item.displayHour,
-    score: item.score,
-    cloudCover: item.cloudCover,
-    detail: item.detail,
-  }));
+  const hourlyScores = rawHourlyScores;
 
   return {
     id: 'cloud_sea',
@@ -525,96 +546,6 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
   const [sH, sM] = sunriseHHMM.split(':').map(Number);
   const sunriseMinutes = (isNaN(sH) ? 6 : sH) * 60 + (isNaN(sM) ? 0 : sM);
 
-  // Sample dawn-to-sunrise window (from 40 min before sunrise to 30 min after sunrise)
-  const sunriseHours = ctx.hourly.filter((h) => {
-    const hStart = h.hourNum * 60;
-    const hEnd = (h.hourNum + 1) * 60;
-    return hEnd > sunriseMinutes - 40 && hStart < sunriseMinutes + 35;
-  });
-  const sample = sunriseHours.length > 0 ? sunriseHours : ctx.hourly.slice(5, 7);
-
-  const avgCloudLow = Math.round(sample.reduce((s, h) => s + h.cloudLow, 0) / (sample.length || 1));
-  const avgCloudTotal = Math.round(sample.reduce((s, h) => s + h.cloudTotal, 0) / (sample.length || 1));
-  const avgVisibility = Math.round(sample.reduce((s, h) => s + h.visibilityKm, 0) / (sample.length || 1));
-  const avgPrecipProb = Math.round(sample.reduce((s, h) => s + h.precipProb, 0) / (sample.length || 1));
-  const avgPrecip = sample.reduce((s, h) => s + (h.precip || 0), 0) / (sample.length || 1);
-  const avgHumidity = Math.round(sample.reduce((s, h) => s + h.humidity, 0) / (sample.length || 1));
-
-  // 1. East Low Cloud Factor (Weight: 40 pts)
-  // Low cloud at eastern horizon is the single most critical factor for seeing the sun disk
-  let scoreLowCloud = 40;
-  if (avgCloudLow <= 10) {
-    scoreLowCloud = 40;
-  } else if (avgCloudLow <= 20) {
-    scoreLowCloud = 35 + ((20 - avgCloudLow) / 10) * 5;
-  } else if (avgCloudLow <= 35) {
-    scoreLowCloud = 24 + ((35 - avgCloudLow) / 15) * 11;
-  } else if (avgCloudLow <= 50) {
-    scoreLowCloud = 12 + ((50 - avgCloudLow) / 15) * 12;
-  } else {
-    scoreLowCloud = Math.max(0, 12 - (avgCloudLow - 50) * 0.25);
-  }
-
-  // 2. Sky Openness & Total Cloud Cover (Weight: 25 pts)
-  // Clear blue/open skies are best for seeing the sun disk and dramatic dawn horizon
-  let scoreSkyOpenness = 25;
-  if (avgCloudTotal <= 15) {
-    scoreSkyOpenness = 25;
-  } else if (avgCloudTotal <= 35) {
-    scoreSkyOpenness = 20 + ((35 - avgCloudTotal) / 20) * 5;
-  } else if (avgCloudTotal <= 60) {
-    scoreSkyOpenness = 12 + ((60 - avgCloudTotal) / 25) * 8;
-  } else if (avgCloudTotal <= 80) {
-    scoreSkyOpenness = 4 + ((80 - avgCloudTotal) / 20) * 8;
-  } else {
-    scoreSkyOpenness = Math.max(0, 4 - (avgCloudTotal - 80) * 0.2);
-  }
-
-  // 3. Horizontal Visibility (Weight: 20 pts)
-  // High visibility ensures razor-sharp red sun edge and clean horizon
-  let scoreVisibility = 20;
-  if (avgVisibility >= 20) {
-    scoreVisibility = 20;
-  } else if (avgVisibility >= 15) {
-    scoreVisibility = 16 + ((avgVisibility - 15) / 5) * 4;
-  } else if (avgVisibility >= 10) {
-    scoreVisibility = 11 + ((avgVisibility - 10) / 5) * 5;
-  } else if (avgVisibility >= 5) {
-    scoreVisibility = 5 + ((avgVisibility - 5) / 5) * 6;
-  } else {
-    scoreVisibility = Math.max(0, avgVisibility);
-  }
-
-  // 4. Precipitation & Clear Guarantee (Weight: 15 pts)
-  let scorePrecip = 15;
-  if (avgPrecipProb <= 10 && avgPrecip === 0) {
-    scorePrecip = 15;
-  } else if (avgPrecipProb <= 25) {
-    scorePrecip = 10 + ((25 - avgPrecipProb) / 15) * 5;
-  } else if (avgPrecipProb <= 45) {
-    scorePrecip = 4 + ((45 - avgPrecipProb) / 20) * 6;
-  } else {
-    scorePrecip = 0;
-  }
-
-  // Base optical score (0 - 100)
-  let dailyBaseScore = scoreLowCloud + scoreSkyOpenness + scoreVisibility + scorePrecip;
-
-  // Severe condition penalties
-  if (avgPrecipProb > 50 || avgPrecip > 0.2) {
-    dailyBaseScore = Math.round(dailyBaseScore * 0.45); // Rain strongly suppresses sunrise viewing
-  } else if (avgPrecipProb > 35) {
-    dailyBaseScore = Math.round(dailyBaseScore * 0.75);
-  }
-
-  // Ground fog / saturated humidity penalty (unless visibility is high or on mountain peaks)
-  if (avgHumidity >= 96 && avgVisibility < 8) {
-    dailyBaseScore = Math.max(0, dailyBaseScore - 8);
-  }
-
-  const finalDailyScore = Math.max(0, Math.min(100, Math.round(dailyBaseScore)));
-
-  // 24-hour hourly score calculation with astronomical solar angle weighting
   const rawSunriseHourly = ctx.hourly.map((h) => {
     const hMidMinutes = (h.hourNum + 0.5) * 60;
     const diffFromSunrise = hMidMinutes - sunriseMinutes; // distance in minutes to exact sunrise
@@ -642,13 +573,25 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
     else hVisScore = 0;
 
     let hPrecipScore = 15;
-    if (h.precipProb <= 10) hPrecipScore = 15;
+    if (h.precipProb <= 10 && (h.precip || 0) === 0) hPrecipScore = 15;
     else if (h.precipProb <= 25) hPrecipScore = 10;
     else if (h.precipProb <= 45) hPrecipScore = 4;
     else hPrecipScore = 0;
 
     let hBase = hLowScore + hOpenScore + hVisScore + hPrecipScore;
-    if (h.precipProb > 50 || (h.precip || 0) > 0.2) hBase *= 0.45;
+    const raining =
+      h.precipProb > 50 ||
+      (h.precip || 0) > 0.2 ||
+      (h.code >= 61 && h.code <= 82) ||
+      h.code >= 95;
+    if (raining) hBase *= 0.45;
+    else if (h.precipProb > 35) hBase *= 0.75;
+    if (h.humidity >= 96 && h.visibilityKm < 8) hBase = Math.max(0, hBase - 8);
+    else if (h.code >= 45 && h.code <= 48 && h.visibilityKm < 10) hBase = Math.max(0, hBase - 6);
+    const dewSpread = Math.abs(h.temp - h.dewPoint);
+    if (dewSpread <= 1.5 && h.humidity >= 90 && h.visibilityKm < 10) hBase = Math.max(0, hBase - 4);
+    const haze = hazePenalty(h.pm2_5, h.aod);
+    hBase += haze.delta;
 
     // Time weighting: Sunrise peak moment
     let timeWeight = 0.08;
@@ -672,14 +615,102 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
 
     let hFinal = Math.round(hBase * timeWeight);
     hFinal = Math.max(0, Math.min(100, hFinal));
+    const clarityValue =
+      h.pm2_5 === undefined && h.aod === undefined
+        ? '数据暂缺'
+        : `AOD ${h.aod === undefined ? '--' : h.aod.toFixed(2)} · PM2.5 ${
+            h.pm2_5 === undefined ? '--' : Math.round(h.pm2_5)
+          }`;
 
     return {
       h,
       score: hFinal,
       timeWeight,
       timingLabel,
+      factors: [
+        {
+          name: '东向地平通透度 (低云)',
+          value: `低云 ${Math.round(h.cloudLow)}%`,
+          status:
+            h.cloudLow <= 15 ? 'optimal' : h.cloudLow <= 35 ? 'good' : h.cloudLow <= 50 ? 'moderate' : 'unfavorable',
+          hint:
+            h.cloudLow <= 15
+              ? '东方地平线无低云阻隔，能完整目睹太阳跃出'
+              : h.cloudLow <= 35
+                ? '有零散低云，日轮可能有轻微云翳穿过'
+                : '低空云墙较厚，地平线日出大概率被遮挡',
+        },
+        {
+          name: '天空晴朗开阔度 (总云量)',
+          value: `总云量 ${Math.round(h.cloudTotal)}%`,
+          status:
+            h.cloudTotal <= 25
+              ? 'optimal'
+              : h.cloudTotal <= 55
+                ? 'good'
+                : h.cloudTotal <= 75
+                  ? 'moderate'
+                  : 'unfavorable',
+          hint:
+            h.cloudTotal <= 25
+              ? '晴空如洗，日出光芒纯粹无碍'
+              : h.cloudTotal <= 55
+                ? '晴间多云，有薄云点缀朝晨光彩'
+                : '云层密闭，阳光穿透力弱',
+        },
+        {
+          name: '水平大气能见度 (锐度)',
+          value: `${h.visibilityKm} km`,
+          status:
+            h.visibilityKm >= 18
+              ? 'optimal'
+              : h.visibilityKm >= 10
+                ? 'good'
+                : h.visibilityKm >= 6
+                  ? 'moderate'
+                  : 'unfavorable',
+          hint:
+            h.visibilityKm >= 18
+              ? '大气通透纯净，日轮边缘锐利、剪影分明'
+              : h.visibilityKm >= 10
+                ? '视野良好，略有轻微晨霭'
+                : '晨雾或霾较重，太阳轮廓模糊泛白',
+        },
+        {
+          name: '降水干扰概率 (保障)',
+          value: `${Math.round(h.precipProb)}% · ${h.precip.toFixed(1)}mm`,
+          status:
+            h.precipProb <= 10 ? 'optimal' : h.precipProb <= 25 ? 'good' : h.precipProb <= 50 ? 'moderate' : 'unfavorable',
+          hint:
+            h.precipProb <= 10
+              ? '晴空无雨，观测极度安全稳定'
+              : h.precipProb <= 25
+                ? '降水概率较低，基本无雨'
+                : '有降雨云团，观测风险极高',
+        },
+        {
+          name: '晨间近地水汽 (晨雾消散)',
+          value: `湿度 ${Math.round(h.humidity)}%`,
+          status: h.humidity <= 85 ? 'optimal' : h.humidity <= 94 ? 'good' : 'moderate',
+          hint: `露点温差 ${dewSpread.toFixed(1)}°C。${
+            h.humidity <= 85
+              ? '近地水汽适中，无浓重贴地辐射雾干扰'
+              : h.humidity <= 94
+                ? '湿度较高，低洼平原可能形成短暂晨雾'
+                : '近地湿度饱和，平原易现浓雾，高山则易伴随云海金顶'
+          }`,
+        },
+        {
+          name: '空气通透',
+          value: clarityValue,
+          status: haze.delta < -3 ? 'unfavorable' : haze.delta < 0 ? 'moderate' : 'good',
+          hint: haze.notes.join('；'),
+        },
+      ] as EvaluationFactor[],
     };
   });
+
+  const dailyScore = peakScore(rawSunriseHourly);
 
   // Determine Level & Summary
   let level: PhenomenonPrediction['level'] = 'poor';
@@ -687,17 +718,17 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
   let levelBadgeColor = 'bg-slate-500/20 text-slate-300 border-slate-600/30';
   let summary = '东向地平低云厚重、阴天或有降水，日出时太阳被厚云完全封死，难见红日破晓。';
 
-  if (finalDailyScore >= 82) {
+  if (dailyScore >= 82) {
     level = 'excellent';
     levelLabel = '金轮破晓·极佳';
     levelBadgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
     summary = `极佳观测日！东方地平线通透无阻，晴空万里。日出时刻将清晰目睹火红圆润的日轮跃出地平线，晨光万道金芒四射！`;
-  } else if (finalDailyScore >= 65) {
+  } else if (dailyScore >= 65) {
     level = 'good';
     levelLabel = '红日初升·良好';
     levelBadgeColor = 'bg-orange-500/20 text-orange-300 border-orange-500/40';
     summary = `气象条件良好，东方地平线视线开阔，少量轻云点缀，日轮破晓与天际色彩层次分明，非常适合观赏与拍摄。`;
-  } else if (finalDailyScore >= 45) {
+  } else if (dailyScore >= 45) {
     level = 'moderate';
     levelLabel = '云隙见日·一般';
     levelBadgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
@@ -708,77 +739,22 @@ function evaluateSunrise(ctx: EvaluationContext): PhenomenonPrediction {
   const bestStart = shiftTimeString(sunriseHHMM, -20);
   const bestEnd = shiftTimeString(sunriseHHMM, 25);
 
-  const factors: EvaluationFactor[] = [
-    {
-      name: '东向地平通透度 (低云)',
-      value: `低云 ${avgCloudLow}%`,
-      status: avgCloudLow <= 15 ? 'optimal' : avgCloudLow <= 35 ? 'good' : avgCloudLow <= 50 ? 'moderate' : 'unfavorable',
-      hint:
-        avgCloudLow <= 15
-          ? '东方地平线无低云阻隔，能完整目睹太阳跃出'
-          : avgCloudLow <= 35
-          ? '有零散低云，日轮可能有轻微云翳穿过'
-          : '低空云墙较厚，地平线日出大概率被遮挡',
-      weightLabel: '核心 40%'
-    },
-    {
-      name: '天空晴朗开阔度 (总云量)',
-      value: `总云量 ${avgCloudTotal}%`,
-      status: avgCloudTotal <= 25 ? 'optimal' : avgCloudTotal <= 55 ? 'good' : avgCloudTotal <= 75 ? 'moderate' : 'unfavorable',
-      hint:
-        avgCloudTotal <= 25
-          ? '晴空如洗，日出光芒纯粹无碍'
-          : avgCloudTotal <= 55
-          ? '晴间多云，有薄云点缀朝晨光彩'
-          : '云层密闭，阳光穿透力弱',
-      weightLabel: '重要 25%'
-    },
-    {
-      name: '水平大气能见度 (锐度)',
-      value: `${avgVisibility} km`,
-      status: avgVisibility >= 18 ? 'optimal' : avgVisibility >= 10 ? 'good' : avgVisibility >= 6 ? 'moderate' : 'unfavorable',
-      hint:
-        avgVisibility >= 18
-          ? '大气通透纯净，日轮边缘锐利、剪影分明'
-          : avgVisibility >= 10
-          ? '视野良好，略有轻微晨霭'
-          : '晨雾或霾较重，太阳轮廓模糊泛白',
-      weightLabel: '关键 20%'
-    },
-    {
-      name: '降水干扰概率 (保障)',
-      value: `${avgPrecipProb}%`,
-      status: avgPrecipProb <= 10 ? 'optimal' : avgPrecipProb <= 25 ? 'good' : avgPrecipProb <= 50 ? 'moderate' : 'unfavorable',
-      hint: avgPrecipProb <= 10 ? '晴空无雨，观测极度安全稳定' : avgPrecipProb <= 25 ? '降水概率较低，基本无雨' : '有降雨云团，观测风险极高',
-      weightLabel: '保障 15%'
-    },
-    {
-      name: '晨间近地水汽 (晨雾消散)',
-      value: `湿度 ${avgHumidity}%`,
-      status: avgHumidity <= 85 ? 'optimal' : avgHumidity <= 94 ? 'good' : 'moderate',
-      hint:
-        avgHumidity <= 85
-          ? '近地水汽适中，无浓重贴地辐射雾干扰'
-          : avgHumidity <= 94
-          ? '湿度较高，低洼平原可能形成短暂晨雾'
-          : '近地湿度饱和，平原易现浓雾，高山则易伴随云海金顶',
-      weightLabel: '参考'
-    }
-  ];
+  const factors: EvaluationFactor[] = [];
 
-  const hourlyScores = rawSunriseHourly.map(({ h, score: hScore, timingLabel }) => ({
+  const hourlyScores = rawSunriseHourly.map(({ h, score: hScore, timingLabel, factors: hourFactors }) => ({
     hour: h.time,
     displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
     score: hScore,
     cloudCover: h.cloudTotal,
     detail: timingLabel,
+    factors: hourFactors,
   }));
 
   return {
     id: 'sunrise',
     title: '红日初升',
     subtitle: '金轮破晓·晨光万道',
-    score: finalDailyScore,
+    score: dailyScore,
     level,
     levelLabel,
     levelBadgeColor,
@@ -815,15 +791,6 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
   const avgCloudLow = Math.round(sample.reduce((s, h) => s + h.cloudLow, 0) / (sample.length || 1));
   const avgCloudMid = Math.round(sample.reduce((s, h) => s + h.cloudMid, 0) / (sample.length || 1));
   const avgCloudHigh = Math.round(sample.reduce((s, h) => s + h.cloudHigh, 0) / (sample.length || 1));
-  const avgVisibility = Math.round(sample.reduce((s, h) => s + h.visibilityKm, 0) / (sample.length || 1));
-  const avgPrecipProb = Math.round(sample.reduce((s, h) => s + h.precipProb, 0) / (sample.length || 1));
-  const avgAod = averageFinite(sample.map((h) => h.aod));
-  const avgPm25 = averageFinite(sample.map((h) => h.pm2_5));
-  const aerosolAdjustment = evaluateSunsetAerosolAdjustment({
-    aerosolOpticalDepth: avgAod,
-    pm2_5: avgPm25,
-  });
-
   const screenCloud = Math.round((avgCloudMid * 1.1 + avgCloudHigh * 1.1) / 2.2);
 
   // 24-hour sunset glow timeline with physical solar depression angle weighting
@@ -847,23 +814,18 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
     windowMinutes = Math.max(10, windowMinutes - 8);
   }
 
-  let windowFactor = 0.95;
   let windowStatus: 'optimal' | 'good' | 'moderate' = 'optimal';
   let windowLabel = '充裕从容';
   if (windowMinutes >= 40) {
-    windowFactor = 0.98;
     windowStatus = 'optimal';
     windowLabel = '充裕从容';
   } else if (windowMinutes >= 28) {
-    windowFactor = 0.90;
     windowStatus = 'good';
     windowLabel = '标准适宜';
   } else if (windowMinutes >= 18) {
-    windowFactor = 0.82;
     windowStatus = 'moderate';
     windowLabel = '偏紧凑·抓拍';
   } else {
-    windowFactor = 0.70;
     windowStatus = 'moderate';
     windowLabel = '稍纵即逝';
   }
@@ -889,8 +851,10 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
     else if (h.visibilityKm >= 8) optScore += 6;
     else optScore -= 8;
 
-    if (h.precipProb > 50) optScore -= 25;
-    else if (h.precipProb <= 15) optScore += 5;
+    if (h.precip > 0.5 || h.precipProb > 50 || h.code >= 95) optScore -= 25;
+    else if ((h.code >= 61 && h.code <= 82) || h.precipProb > 30) optScore -= 12;
+    else if (h.precipProb <= 15 && (h.precip || 0) === 0) optScore += 5;
+    if (h.humidity >= 95 && h.visibilityKm < 8) optScore -= 8;
     const hourlyAerosolAdjustment = evaluateSunsetAerosolAdjustment({
       aerosolOpticalDepth: h.aod,
       pm2_5: h.pm2_5,
@@ -917,6 +881,12 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
 
     let hScore = Math.round(optScore * timeWeight);
     hScore = Math.max(0, Math.min(100, hScore));
+    const aerosolValue =
+      h.aod === undefined && h.pm2_5 === undefined
+        ? '数据暂缺'
+        : `AOD ${h.aod === undefined ? '--' : h.aod.toFixed(2)} · PM2.5 ${
+            h.pm2_5 === undefined ? '--' : Math.round(h.pm2_5)
+          }`;
 
     return {
       h,
@@ -924,15 +894,60 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
       timeWeight,
       timingLabel,
       hScreen,
+      factors: [
+        {
+          name: '西向地平光路 (低云遮挡)',
+          value: `低云 ${Math.round(h.cloudLow)}%`,
+          status: h.cloudLow <= 25 ? 'optimal' : h.cloudLow <= 40 ? 'good' : 'unfavorable',
+          hint: h.cloudLow <= 25 ? '落日入射角度完美，无厚重低云遮挡' : '西侧有云遮挡，余晖受阻',
+        },
+        {
+          name: '天幕承载云量 (火烧云层)',
+          value: `中高云 ${hScreen}%`,
+          status: hScreen >= 35 && hScreen <= 75 ? 'optimal' : 'good',
+          hint:
+            hScreen >= 35 && hScreen <= 75
+              ? '中高层卷云/透光高积云，火烧云天幕成型'
+              : '云层较少或过于密实',
+        },
+        {
+          name: '水平能见度',
+          value: `${h.visibilityKm} km`,
+          status: h.visibilityKm >= 15 ? 'optimal' : h.visibilityKm >= 8 ? 'good' : 'moderate',
+          hint: h.visibilityKm >= 15 ? '空气通透澄澈，色彩反差与饱和度高' : '存在轻度霾气，色彩略显灰蒙',
+        },
+        {
+          name: '降水与雷暴概率',
+          value: `${Math.round(h.precipProb)}% · ${h.precip.toFixed(1)}mm`,
+          status: h.precipProb <= 20 ? 'optimal' : h.precipProb <= 45 ? 'good' : 'unfavorable',
+          hint:
+            h.code >= 95
+              ? '有雷暴云团，夕照通道不稳定'
+              : h.precipProb <= 20
+                ? '气压稳定，无降雨云层冲刷'
+                : '有局部阵雨可能',
+        },
+        {
+          name: '空气通透 / 气溶胶',
+          value: aerosolValue,
+          status:
+            h.aod === undefined && h.pm2_5 === undefined
+              ? 'moderate'
+              : hourlyAerosolAdjustment.delta > 0
+                ? 'good'
+                : hourlyAerosolAdjustment.delta < 0
+                  ? 'unfavorable'
+                  : 'moderate',
+          hint:
+            h.aod === undefined && h.pm2_5 === undefined
+              ? '空气质量数据暂缺，晚霞评分未做气溶胶修正'
+              : hourlyAerosolAdjustment.notes.join('；'),
+        },
+      ] as EvaluationFactor[],
     };
   });
 
-  const peakHourlyScore = Math.max(...rawSunsetHourly.map((r) => r.score), 0);
-
-  // 3. Daily overall score: derived from Peak Potential discounted by Window Duration Factor
-  let dailyScore = Math.round(peakHourlyScore * windowFactor);
-  if (avgPrecipProb > 50) dailyScore = Math.round(dailyScore * 0.75);
-  dailyScore = Math.max(0, Math.min(peakHourlyScore, dailyScore)); // Never exceed peak hourly score
+  const dailyScore = peakScore(rawSunsetHourly);
 
   let level: PhenomenonPrediction['level'] = 'poor';
   let levelLabel = '晚霞几率低';
@@ -961,73 +976,23 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
 
   const factors: EvaluationFactor[] = [
     {
-      name: '西向地平光路 (低云遮挡)',
-      value: `低云 ${avgCloudLow}%`,
-      status: avgCloudLow <= 25 ? 'optimal' : avgCloudLow <= 40 ? 'good' : 'unfavorable',
-      hint: avgCloudLow <= 25 ? '落日入射角度完美，无厚重低云遮挡' : '西侧有云遮挡，余晖受阻',
-      weightLabel: '核心'
-    },
-    {
-      name: '天幕承载云量 (火烧云层)',
-      value: `中高云 ${screenCloud}%`,
-      status: screenCloud >= 35 && screenCloud <= 75 ? 'optimal' : 'good',
-      hint: screenCloud >= 35 && screenCloud <= 75 ? '中高层卷云/透光高积云，火烧云天幕成型' : '云层较少或过于密实',
-      weightLabel: '核心'
-    },
-    {
       name: '受光观赏窗口时长',
-      value: `${windowMinutes}分钟 · ${windowLabel} (系数${Math.round(windowFactor * 100)}%)`,
+      value: `${windowMinutes}分钟 · ${windowLabel}`,
       status: windowStatus,
       hint:
         windowMinutes >= 35
           ? '西向低云阻碍小，火烧云演变平缓充裕，成片率高'
           : '受西向低云压制，火烧云爆发时段偏短，抓拍需迅速',
-      weightLabel: '窗口'
     },
-    {
-      name: '水平能见度',
-      value: `${avgVisibility} km`,
-      status: avgVisibility >= 15 ? 'optimal' : avgVisibility >= 8 ? 'good' : 'moderate',
-      hint: avgVisibility >= 15 ? '空气通透澄澈，色彩反差与饱和度高' : '存在轻度霾气，色彩略显灰蒙',
-      weightLabel: '关键'
-    },
-    {
-      name: '降水与雷暴概率',
-      value: `${avgPrecipProb}%`,
-      status: avgPrecipProb <= 20 ? 'optimal' : avgPrecipProb <= 45 ? 'good' : 'unfavorable',
-      hint: avgPrecipProb <= 20 ? '气压稳定，无降雨云层冲刷' : '有局部阵雨可能',
-      weightLabel: '参考'
-    },
-    {
-      name: '空气通透 / 气溶胶',
-      value:
-        avgAod === undefined && avgPm25 === undefined
-          ? '数据暂缺'
-          : `AOD ${avgAod === undefined ? '--' : avgAod.toFixed(2)} · PM2.5 ${
-              avgPm25 === undefined ? '--' : Math.round(avgPm25)
-            }`,
-      status:
-        avgAod === undefined && avgPm25 === undefined
-          ? 'moderate'
-          : aerosolAdjustment.delta > 0
-            ? 'good'
-            : aerosolAdjustment.delta < 0
-              ? 'unfavorable'
-              : 'moderate',
-      hint:
-        avgAod === undefined && avgPm25 === undefined
-          ? '空气质量数据暂缺，晚霞评分未做气溶胶修正'
-          : aerosolAdjustment.notes.join('；'),
-      weightLabel: '辅助'
-    }
   ];
 
-  const hourlyScores = rawSunsetHourly.map(({ h, score: hScore, timingLabel }) => ({
+  const hourlyScores = rawSunsetHourly.map(({ h, score: hScore, timingLabel, factors: hourFactors }) => ({
     hour: h.time,
     displayHour: `${String(h.hourNum).padStart(2, '0')}:00`,
     score: hScore,
     cloudCover: h.cloudTotal,
     detail: timingLabel,
+    factors: hourFactors,
   }));
 
   return {
@@ -1055,39 +1020,90 @@ function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction {
 function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
   const moonInfo = calculateMoonInfo(ctx.dateStr);
 
-  // Night hours: 21:00 to 04:00
-  const nightHours = ctx.hourly.filter((h) => h.hourNum >= 21 || h.hourNum <= 4);
-  const sample = nightHours.length > 0 ? nightHours : ctx.hourly.filter((h) => h.hourNum >= 20);
-
-  const avgCloudTotal = Math.round(sample.reduce((s, h) => s + h.cloudTotal, 0) / (sample.length || 1));
-  const avgHumidity = Math.round(sample.reduce((s, h) => s + h.humidity, 0) / (sample.length || 1));
-  const avgPrecipProb = Math.round(sample.reduce((s, h) => s + h.precipProb, 0) / (sample.length || 1));
-
-  // 1. Calculate continuous night clear window hours
   const nightHoursForWindow = ctx.hourly.filter((h) => h.hourNum >= 21 || h.hourNum <= 4);
   const clearNightHours = nightHoursForWindow.filter((h) => h.cloudTotal <= 25 && h.precipProb <= 25).length;
-  let windowHours = clearNightHours;
-  let windowFactor = 0.90;
+  const windowHours = clearNightHours;
   let windowStatus: 'optimal' | 'good' | 'moderate' = 'good';
   let windowLabel = '适中稳定';
 
   if (windowHours >= 5) {
-    windowFactor = 0.98;
     windowStatus = 'optimal';
     windowLabel = '通宵纯黑';
   } else if (windowHours >= 3) {
-    windowFactor = 0.90;
     windowStatus = 'good';
     windowLabel = '充裕从容';
   } else if (windowHours >= 1.5) {
-    windowFactor = 0.80;
     windowStatus = 'moderate';
     windowLabel = '间歇晴空·抓拍';
   } else {
-    windowFactor = 0.65;
     windowStatus = 'moderate';
     windowLabel = '短暂云隙';
   }
+
+  const starryHourFactors = (
+    h: HourSlice,
+    moonlight: ReturnType<typeof evaluateMoonlightImpact>,
+    daytime: boolean
+  ): EvaluationFactor[] => {
+    const haze = hazePenalty(h.pm2_5, h.aod);
+    const dewSpread = Math.abs(h.temp - h.dewPoint);
+    const clarityValue =
+      h.pm2_5 === undefined && h.aod === undefined
+        ? `${h.visibilityKm} km`
+        : `${h.visibilityKm} km · AOD ${h.aod === undefined ? '--' : h.aod.toFixed(2)} · PM2.5 ${
+            h.pm2_5 === undefined ? '--' : Math.round(h.pm2_5)
+          }`;
+    return [
+      {
+        name: '夜间总云量 (黑空纯度)',
+        value: `${Math.round(h.cloudTotal)}%`,
+        status: h.cloudTotal <= 15 ? 'optimal' : h.cloudTotal <= 35 ? 'good' : 'unfavorable',
+        hint: h.cloudTotal <= 15 ? '夜空几乎万里无云，恒星无遮挡' : '存在部分低云或中云飘过',
+      },
+      {
+        name: '月光干扰',
+        value: daytime
+          ? '日间无观星'
+          : moonlight.isAboveHorizon
+            ? `高度 ${Math.round(moonlight.altitudeDeg)}°`
+            : '在地平线下',
+        status: daytime
+          ? 'moderate'
+          : moonlight.penalty === 0
+            ? 'optimal'
+            : moonlight.penalty <= 10
+              ? 'good'
+              : 'unfavorable',
+        hint: daytime ? '太阳在天上，这一小时不评估月光' : `逐时按月亮高度与照度计算；${moonlight.note}`,
+      },
+      {
+        name: '夜间相对湿度 (防结露)',
+        value: `${Math.round(h.humidity)}%`,
+        status: h.humidity <= 65 ? 'optimal' : h.humidity <= 80 ? 'good' : 'unfavorable',
+        hint: `露点温差 ${dewSpread.toFixed(1)}°C。${
+          h.humidity <= 65 ? '空气干燥，镜头镜片不易结露起雾' : '湿度偏高，务必携带镜头加热带'
+        }`,
+      },
+      {
+        name: '能见度与气溶胶',
+        value: clarityValue,
+        status: haze.delta < -3 || h.visibilityKm < 8 ? 'unfavorable' : haze.delta < 0 ? 'moderate' : 'good',
+        hint: haze.notes.join('；'),
+      },
+      {
+        name: '降水',
+        value: `${Math.round(h.precipProb)}% · ${h.precip.toFixed(1)}mm`,
+        status: h.precipProb <= 15 && h.precip === 0 ? 'optimal' : h.precipProb <= 30 ? 'good' : 'unfavorable',
+        hint: h.precipProb <= 15 ? '无有效降水，镜头和地平线都干净' : '有降水，星空窗口中断',
+      },
+      {
+        name: '风速',
+        value: `${h.windSpeed} km/h`,
+        status: h.windSpeed <= 15 ? 'optimal' : h.windSpeed <= 25 ? 'good' : 'unfavorable',
+        hint: h.windSpeed <= 15 ? '风力温和，三脚架稳定' : '风大时星点容易拖线',
+      },
+    ];
+  };
 
   // 2. Hourly scores calculation
   const rawNightHourly = ctx.hourly.map((h) => {
@@ -1107,7 +1123,7 @@ function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
         score: 0,
         cloudCover: h.cloudTotal,
         detail: '日间无法观星',
-        moonlight,
+        factors: starryHourFactors(h, moonlight, true),
       };
     }
 
@@ -1148,7 +1164,9 @@ function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
     if (h.windSpeed <= 15) optScore += 5;
     else if (h.windSpeed > 25) optScore -= 8;
 
-    if (h.precipProb > 30) optScore -= 25;
+    if (h.precip > 0.2 || h.precipProb > 30 || h.code >= 61) optScore -= 25;
+    if (h.humidity >= 90 && Math.abs(h.temp - h.dewPoint) <= 1.5) optScore -= 6;
+    optScore += hazePenalty(h.pm2_5, h.aod).delta;
 
     const hScore = clampScore(optScore * timeMultiplier - moonlight.penalty);
 
@@ -1158,20 +1176,11 @@ function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
       score: hScore,
       cloudCover: h.cloudTotal,
       detail: periodName,
-      moonlight,
+      factors: starryHourFactors(h, moonlight, false),
     };
   });
 
-  const peakNightScore = Math.max(...rawNightHourly.map((r) => r.score), 0);
-  const peakNightHour = rawNightHourly.reduce<(typeof rawNightHourly)[number] | undefined>(
-    (best, current) => (best === undefined || current.score > best.score ? current : best),
-    undefined
-  );
-
-  // 3. Daily score derived from peak night condition discounted by window factor
-  let dailyScore = Math.round(peakNightScore * windowFactor);
-  if (avgPrecipProb > 30) dailyScore = Math.round(dailyScore * 0.75);
-  dailyScore = Math.max(0, Math.min(peakNightScore, dailyScore)); // Never exceed peak hourly score
+  const dailyScore = peakScore(rawNightHourly);
 
   let level: PhenomenonPrediction['level'] = 'poor';
   let levelLabel = '观星条件不佳';
@@ -1208,52 +1217,31 @@ function evaluateStarrySky(ctx: EvaluationContext): PhenomenonPrediction {
 
   const factors: EvaluationFactor[] = [
     {
-      name: '夜间总云量 (黑空纯度)',
-      value: `${avgCloudTotal}%`,
-      status: avgCloudTotal <= 15 ? 'optimal' : avgCloudTotal <= 35 ? 'good' : 'unfavorable',
-      hint: avgCloudTotal <= 15 ? '夜空几乎万里无云，恒星无遮挡' : '存在部分低云或中云飘过',
-      weightLabel: '核心'
-    },
-    {
       name: `月相与照度 (${moonInfo.phaseName})`,
-      value: peakNightHour
-        ? `峰值时月亮${peakNightHour.moonlight.isAboveHorizon ? `高度 ${Math.round(peakNightHour.moonlight.altitudeDeg)}°` : '在地平线下'}`
-        : `月面亮度 ${moonInfo.illuminationPct}%`,
+      value: `月面亮度 ${moonInfo.illuminationPct}%`,
       status:
-        !peakNightHour || peakNightHour.moonlight.penalty === 0
+        moonInfo.illuminationPct <= 20
           ? 'optimal'
-          : peakNightHour.moonlight.penalty <= 10
+          : moonInfo.illuminationPct <= 50
             ? 'good'
             : 'unfavorable',
-      hint: peakNightHour
-        ? `逐时按月亮高度与照度计算；${peakNightHour.moonlight.note}`
-        : '逐时月光数据不足，未施加月光惩罚',
-      weightLabel: '核心'
+      hint: '月相全天不变；各小时月亮高度见 24 小时走势',
     },
     {
       name: '纯黑无云晴空窗口',
-      value: `约${windowHours}小时 · ${windowLabel} (系数${Math.round(windowFactor * 100)}%)`,
+      value: `约${windowHours}小时 · ${windowLabel}`,
       status: windowStatus,
       hint:
         windowHours >= 4
           ? '通宵或大半夜纯黑无云，适宜深空深长曝光与整夜星轨'
           : '晴空窗口有限，建议在核心时段提前对焦并紧凑拍摄',
-      weightLabel: '窗口'
-    },
-    {
-      name: '夜间相对湿度 (防结露)',
-      value: `${avgHumidity}%`,
-      status: avgHumidity <= 65 ? 'optimal' : avgHumidity <= 80 ? 'good' : 'unfavorable',
-      hint: avgHumidity <= 65 ? '空气干燥，镜头镜片不易结露起雾' : '湿度偏高，务必携带镜头加热带',
-      weightLabel: '关键'
     },
     {
       name: '暗空参考等级评估',
       value: bortleEst,
       status: dailyScore >= 70 ? 'optimal' : 'good',
-      hint: '结合海拔、光害估算与当前气象环境',
-      weightLabel: '指数'
-    }
+      hint: '结合海拔、光害估算与当日最佳时次的气象条件',
+    },
   ];
 
   const hourlyScores = rawNightHourly;
@@ -1291,206 +1279,65 @@ export function evaluateTravelWeather(
 
   const totalRain = sample.reduce((sum, h) => sum + (h.precip || 0), 0);
   const maxRainProb = Math.max(...sample.map((h) => h.precipProb || 0), 0);
-  const avgHumidity = Math.round(sample.reduce((sum, h) => sum + h.humidity, 0) / (sample.length || 1));
-  const avgWind = Math.round(sample.reduce((sum, h) => sum + h.windSpeed, 0) / (sample.length || 1));
-  const maxWind = Math.max(...sample.map((h) => h.windSpeed || 0), 0);
-  const avgVis = Math.round(sample.reduce((sum, h) => sum + h.visibilityKm, 0) / (sample.length || 1));
   const avgCloud = Math.round(sample.reduce((sum, h) => sum + h.cloudTotal, 0) / (sample.length || 1));
   const uv = uvIndexMax ?? (avgCloud < 40 ? 5 : 3);
-  const maxGust = Math.max(...sample.map((h) => h.gusts ?? 0), 0);
-  const apparentCandidates = sample
-    .map((h) => h.apparentTemp)
-    .filter((value): value is number => value !== undefined);
-  const representativeApparent = apparentCandidates.reduce<number | undefined>(
-    (worst, value) => {
-      if (worst === undefined) return value;
-      const currentDelta = evaluateHikingComfortAdjustment({ apparentTemperature: value }).delta;
-      const worstDelta = evaluateHikingComfortAdjustment({ apparentTemperature: worst }).delta;
-      return currentDelta < worstDelta ? value : worst;
-    },
-    undefined
-  );
-  const hikingAdjustment = evaluateHikingComfortAdjustment({
-    apparentTemperature: representativeApparent,
-    temperature: representativeApparent === undefined ? dailyMaxTemp : undefined,
-    windGusts: sample.some((h) => h.gusts !== undefined) ? maxGust : undefined,
-  });
-  // 基础模型已评价实际气温，只保留体感/阵风负向修正及最多 2 分正向补充。
-  const boundedHikingDelta = Math.min(2, hikingAdjustment.delta);
 
-  // Realistic, continuous meteorological scoring (Sum to 100 points maximum, no artificial hard caps or clamps)
-  // 1. Precipitation & ground safety (Max 35 points)
-  let rainScore = 0;
-  if (totalRain === 0 && maxRainProb <= 15) {
-    rainScore = 35;
-  } else if (totalRain === 0 && maxRainProb <= 30) {
-    rainScore = 28;
-  } else if (totalRain <= 0.2 && maxRainProb <= 45) {
-    rainScore = 20;
-  } else if (totalRain <= 1.0 && maxRainProb <= 60) {
-    rainScore = 12;
-  } else if (totalRain <= 3.0) {
-    rainScore = 5;
-  } else {
-    rainScore = 0;
-  }
-
-  // 2. Temperature & humidity thermal comfort for hiking (Max 30 points)
-  // Hiking causes significant metabolic heat generation.
-  let tempScore = 0;
   let tempStatus: 'optimal' | 'good' | 'moderate' | 'unfavorable' = 'good';
   let tempHint = '';
   if (dailyMaxTemp >= 16 && dailyMaxTemp <= 24 && dailyMinTemp >= 10) {
-    tempScore = 30;
     tempStatus = 'optimal';
     tempHint = '人体温润黄金区间，久走不燥、体感极舒适';
   } else if (dailyMaxTemp >= 13 && dailyMaxTemp <= 27) {
-    tempScore = 24;
     tempStatus = 'good';
     tempHint = '体感适宜，早晚略有温差，适度增减衣物';
   } else if (dailyMaxTemp >= 28 && dailyMaxTemp <= 30) {
-    tempScore = 17;
     tempStatus = 'good';
     tempHint = '气温偏暖热，徒步易出汗，需备足饮水与电解质';
   } else if (dailyMaxTemp >= 31 && dailyMaxTemp <= 33) {
-    tempScore = 10;
     tempStatus = 'moderate';
     tempHint = '高温偏闷热，正午登山易中暑脱水，建议避开11-15点高温段';
   } else if (dailyMaxTemp > 33) {
-    tempScore = 2;
     tempStatus = 'unfavorable';
     tempHint = '酷暑高温，户外剧烈运动中暑风险极高，不建议长线徒步';
   } else if (dailyMaxTemp < 6) {
-    tempScore = 8;
     tempStatus = 'moderate';
     tempHint = '体感严寒，山道有积冰湿滑风险，需专业防寒防滑装备';
   } else {
-    tempScore = 18;
     tempStatus = 'good';
     tempHint = '气温微凉，请做好防风保暖';
   }
 
-  // 3. Ultraviolet radiation (UV) load (Max 15 points)
-  let uvScore = 0;
   let uvStatus: 'optimal' | 'good' | 'moderate' | 'unfavorable' = 'good';
   let uvHint = '';
   if (uv <= 2) {
-    uvScore = 15;
     uvStatus = 'optimal';
     uvHint = '紫外线温和，无灼伤晒伤风险，极为安全舒适';
   } else if (uv <= 4) {
-    uvScore = 12;
     uvStatus = 'good';
     uvHint = '紫外线中等，正常佩戴遮阳帽即可';
   } else if (uv <= 6) {
-    uvScore = 8;
     uvStatus = 'good';
     uvHint = '紫外线偏强，阳光下久行需涂抹防晒霜并佩戴太阳镜';
   } else if (uv <= 8) {
-    uvScore = 4;
     uvStatus = 'moderate';
     uvHint = '强紫外线暴晒！皮肤极易晒伤发红，务必做好物理遮阳与防晒';
   } else {
-    uvScore = 0;
     uvStatus = 'unfavorable';
     uvHint = '极强紫外线！无遮挡山脊易灼伤脱皮，严禁长时间烈日暴晒';
   }
 
-  // 4. Wind comfort (Max 10 points)
-  let windScore = 0;
-  let windStatus: 'optimal' | 'good' | 'moderate' | 'unfavorable' = 'good';
-  if (avgWind <= 14 && maxWind <= 22) {
-    windScore = 10;
-    windStatus = 'optimal';
-  } else if (avgWind <= 22) {
-    windScore = 7;
-    windStatus = 'good';
-  } else if (maxWind >= 35 || avgWind > 30) {
-    windScore = 0;
-    windStatus = 'unfavorable';
-  } else {
-    windScore = 4;
-    windStatus = 'moderate';
-  }
-
-  // 5. Air visibility (Max 10 points)
-  let visScore = 0;
-  let visStatus: 'optimal' | 'good' | 'moderate' = 'good';
-  if (avgVis >= 18) {
-    visScore = 10;
-    visStatus = 'optimal';
-  } else if (avgVis >= 10) {
-    visScore = 7;
-    visStatus = 'good';
-  } else if (avgVis >= 5) {
-    visScore = 4;
-    visStatus = 'moderate';
-  } else {
-    visScore = 1;
-    visStatus = 'moderate';
-  }
-
-  // Objective raw sum (0 to 100)
-  let score = Math.round(rainScore + tempScore + uvScore + windScore + visScore);
-  score = clampScore(score + boundedHikingDelta);
-
-  // Factors
   const factors: EvaluationFactor[] = [
     {
-      name: '降水风险',
-      value:
-        totalRain === 0
-          ? maxRainProb <= 15
-            ? '0% · 全天干爽无雨'
-            : `${maxRainProb}% · 偶有阴云但无降水`
-          : `${totalRain.toFixed(1)}mm · 有降雨概率`,
-      status: totalRain === 0 && maxRainProb <= 20 ? 'optimal' : totalRain <= 0.5 ? 'good' : totalRain <= 2 ? 'moderate' : 'unfavorable',
-      hint: totalRain === 0 ? '地面干燥安全，无需携带雨具' : '建议随身备便携折叠雨伞防小雨',
-      weightLabel: '核心关键',
-    },
-    {
-      name: '体感温湿',
-      value: `${Math.round(dailyMinTemp)}℃ ~ ${Math.round(dailyMaxTemp)}℃ · 湿度${avgHumidity}%`,
+      name: '全天气温区间',
+      value: `${Math.round(dailyMinTemp)}℃ ~ ${Math.round(dailyMaxTemp)}℃`,
       status: tempStatus,
       hint: tempHint,
-      weightLabel: '舒适度',
     },
     {
       name: '紫外防晒',
       value: `UV ${uv.toFixed(0)} · ${uv >= 7 ? '强紫外线' : uv >= 4 ? '中等偏强' : '温和舒适'}`,
       status: uvStatus,
       hint: uvHint,
-      weightLabel: '户外防晒',
-    },
-    {
-      name: '风力体感',
-      value: `${avgWind <= 12 ? '1-2级微风' : avgWind <= 20 ? '3级和风' : '4级微劲风'} (${avgWind} km/h)`,
-      status: windStatus,
-      hint: avgWind <= 15 ? '和风拂面，适宜草坪露营放风筝与徒步' : '风力稍明显，山脊注意防风防凉',
-      weightLabel: '体感轻重',
-    },
-    {
-      name: '阵风 / 代表体感修正',
-      value: `${
-        representativeApparent === undefined ? '体感温暂缺' : `代表体感 ${Math.round(representativeApparent)}℃`
-      } · ${sample.some((h) => h.gusts !== undefined) ? `最大阵风 ${Math.round(maxGust)}km/h` : '阵风暂缺'}`,
-      status:
-        boundedHikingDelta < -4
-          ? 'unfavorable'
-          : boundedHikingDelta < 0
-            ? 'moderate'
-            : boundedHikingDelta > 0
-              ? 'good'
-              : 'moderate',
-      hint: hikingAdjustment.notes.join('；'),
-      weightLabel: '安全修正',
-    },
-    {
-      name: '空气通透',
-      value: `${avgVis} km · ${avgVis >= 20 ? '通透极佳' : avgVis >= 12 ? '通透良好' : '轻度薄雾'}`,
-      status: visStatus,
-      hint: avgVis >= 15 ? '视野宽广明亮，适宜登高远眺拍摄风光' : '能见度一般，适合近景林道漫步',
-      weightLabel: '视野开阔',
     },
     {
       name: '建议着装',
@@ -1498,42 +1345,15 @@ export function evaluateTravelWeather(
         dailyMaxTemp >= 28
           ? '速干短袖 / 透气防晒衣'
           : dailyMaxTemp >= 20
-          ? '长袖速干T恤 / 轻薄防风外套'
-          : dailyMaxTemp >= 14
-          ? '长袖衬衫 / 卫衣 + 防风夹克'
-          : '保暖打底 + 抓绒内胆 / 软壳冲锋衣',
+            ? '长袖速干T恤 / 轻薄防风外套'
+            : dailyMaxTemp >= 14
+              ? '长袖衬衫 / 卫衣 + 防风夹克'
+              : '保暖打底 + 抓绒内胆 / 软壳冲锋衣',
       status: 'optimal',
-      hint: '建议洋葱式多层穿搭，便于途中发热时穿脱调节',
-      weightLabel: '出行着装',
+      hint: '按全天最高气温准备，途中再按分时体感增减',
     },
   ];
 
-  let level: PhenomenonPrediction['level'] = 'poor';
-  let levelLabel = '天气欠佳·不宜户外';
-  let levelBadgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
-  let summary = '受降水、大风或体感不适影响，山地步道湿滑，户外游览体验受限，建议推迟出行或选择室内展馆游览。';
-
-  if (score >= 85) {
-    level = 'excellent';
-    levelLabel = '黄金徒步·极佳';
-    levelBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    summary = '气象条件极为理想！气温温润舒适，微风和煦且全天无有效降雨，适宜登山徒步、山野寻幽或露营野餐。';
-  } else if (score >= 68) {
-    level = 'good';
-    levelLabel = '适宜徒步·良好';
-    levelBadgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
-    summary =
-      dailyMaxTemp >= 31
-        ? '总体适宜户外活动，但正午前后气温偏高且紫外线强烈，推荐选择清晨或傍晚清凉时段，备足饮水与防晒。'
-        : '总体天气较佳，体感温和，适合大部分山地步道与户外徒步路线，早晚略有温差，适宜规划半日或全日徒步。';
-  } else if (score >= 50) {
-    level = 'moderate';
-    levelLabel = '徒步一般·慎行';
-    levelBadgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-    summary = '气象条件中等，可能存在偏热、强晒或局部零星小雨风险，山道可能有湿滑路段，建议选择平缓路线并备好防护。';
-  }
-
-  // Best time window
   let bestTimeWindow = '全天 08:30 - 17:00 (日间黄金徒步时段)';
   let bestTimeShort = '08:30 - 17:00';
   if (totalRain > 0 && maxRainProb > 40) {
@@ -1544,16 +1364,13 @@ export function evaluateTravelWeather(
     bestTimeShort = '早晚清凉时段';
   }
 
-  // Hourly scores (24 hours) - 实事求是计算每小时气象适宜度
   const rawHikingHourly = ctx.hourly.map((h) => {
-    // 1. Rain (0-35)
     let hRain = 35;
-    if (h.precip > 2.0 || h.precipProb > 70) hRain = 0;
-    else if (h.precip > 0.5 || h.precipProb > 50) hRain = 8;
-    else if (h.precipProb > 30) hRain = 18;
+    if (h.precip > 2.0 || h.precipProb > 70 || h.code >= 95) hRain = 0;
+    else if (h.precip > 0.5 || h.precipProb > 50 || (h.code >= 61 && h.code <= 82)) hRain = 8;
+    else if (h.precipProb > 30 || (h.code >= 51 && h.code <= 55)) hRain = 18;
     else if (h.precipProb > 15) hRain = 28;
 
-    // 2. Temp (0-30)
     let hTemp = 30;
     if (h.temp >= 16 && h.temp <= 24) hTemp = 30;
     else if (h.temp >= 13 && h.temp <= 27) hTemp = 24;
@@ -1562,40 +1379,35 @@ export function evaluateTravelWeather(
     else if (h.temp > 33) hTemp = 2;
     else if (h.temp >= 6 && h.temp < 13) hTemp = 16;
     else hTemp = 6;
+    if (h.humidity >= 85 && h.temp >= 26) hTemp = Math.max(0, hTemp - 6);
+    else if (h.humidity >= 75 && h.temp >= 24) hTemp = Math.max(0, hTemp - 3);
+    else if (h.humidity >= 92 && h.temp <= 8) hTemp = Math.max(0, hTemp - 4);
 
-    // 3. Daylight & Sun intensity (0-15)
-    let hSun = 15;
-    if (h.hourNum < 6 || h.hourNum > 19) {
-      hSun = 0; // Night hiking has dark, hazardous trails
-    } else if (h.hourNum === 6 || h.hourNum === 19) {
-      hSun = 8;
-    } else if (h.hourNum >= 11 && h.hourNum <= 14 && uv >= 6) {
-      hSun = 5; // Midday blazing sun
-    } else {
-      hSun = 14;
-    }
+    const hSun = hikingDaylightUvScore(h.hourNum, uv, h.cloudTotal);
 
-    // 4. Wind (0-10)
     let hWind = 10;
     if (h.windSpeed <= 14) hWind = 10;
     else if (h.windSpeed <= 22) hWind = 7;
     else if (h.windSpeed <= 30) hWind = 3;
     else hWind = 0;
 
-    // 5. Visibility (0-10)
     let hVis = 10;
     if (h.visibilityKm >= 18) hVis = 10;
     else if (h.visibilityKm >= 10) hVis = 7;
     else if (h.visibilityKm >= 5) hVis = 4;
     else hVis = 1;
+    if (h.pm2_5 !== undefined && h.pm2_5 > 115) hVis = Math.max(0, hVis - 3);
+    else if (h.pm2_5 !== undefined && h.pm2_5 > 75) hVis = Math.max(0, hVis - 2);
 
-    let hScore = Math.round(hRain + hTemp + hSun + hWind + hVis);
     const hourlyComfort = evaluateHikingComfortAdjustment({
       apparentTemperature: h.apparentTemp,
       temperature: h.temp,
       windGusts: h.gusts,
     });
-    hScore = clampScore(hScore + Math.min(2, hourlyComfort.delta));
+    const comfortDelta = Math.min(2, hourlyComfort.delta);
+    let hScore = clampScore(Math.round(hRain + hTemp + hSun + hWind + hVis) + comfortDelta);
+    const windLabel = h.windSpeed <= 12 ? '1-2级微风' : h.windSpeed <= 20 ? '3级和风' : '4级及以上';
+    const feels = h.apparentTemp === undefined ? undefined : Math.round(h.apparentTemp);
 
     return {
       hour: h.time,
@@ -1603,17 +1415,78 @@ export function evaluateTravelWeather(
       score: hScore,
       cloudCover: h.cloudTotal,
       detail: describeHikingHour(h, hScore),
-      isDaytime: h.hourNum >= 7 && h.hourNum <= 18,
+      factors: [
+        {
+          name: '降水风险',
+          value: `${Math.round(h.precipProb)}% · ${h.precip.toFixed(1)}mm`,
+          status: hRain >= 28 ? 'optimal' : hRain >= 18 ? 'good' : hRain >= 8 ? 'moderate' : 'unfavorable',
+          hint: h.precip === 0 && h.precipProb <= 15 ? '这一小时地面干燥' : '可能遇雨，步道易湿滑',
+        },
+        {
+          name: '体感温湿',
+          value: `${Math.round(h.temp)}℃ · 湿度${Math.round(h.humidity)}%${
+            feels === undefined ? '' : ` · 体感${feels}℃`
+          }`,
+          status: hTemp >= 24 ? 'optimal' : hTemp >= 16 ? 'good' : hTemp >= 8 ? 'moderate' : 'unfavorable',
+          hint:
+            h.humidity >= 85 && h.temp >= 26
+              ? '闷热，出汗散热差'
+              : h.temp >= 16 && h.temp <= 24
+                ? '这一小时体感舒适'
+                : '注意增减衣物与补水',
+        },
+        {
+          name: '风力体感',
+          value: `${windLabel} (${h.windSpeed} km/h)`,
+          status: hWind >= 10 ? 'optimal' : hWind >= 7 ? 'good' : hWind >= 3 ? 'moderate' : 'unfavorable',
+          hint: h.windSpeed <= 15 ? '和风，步道行走稳定' : '风力偏大，山脊注意防风',
+        },
+        {
+          name: '阵风 / 体感修正',
+          value: `${feels === undefined ? '体感温暂缺' : `体感 ${feels}℃`} · ${
+            h.gusts === undefined ? '阵风暂缺' : `阵风 ${Math.round(h.gusts)}km/h`
+          }`,
+          status:
+            comfortDelta < -4 ? 'unfavorable' : comfortDelta < 0 ? 'moderate' : comfortDelta > 0 ? 'good' : 'moderate',
+          hint: hourlyComfort.notes.join('；'),
+        },
+        {
+          name: '空气通透',
+          value: `${h.visibilityKm} km${h.pm2_5 === undefined ? '' : ` · PM2.5 ${Math.round(h.pm2_5)}`}`,
+          status: hVis >= 10 ? 'optimal' : hVis >= 7 ? 'good' : 'moderate',
+          hint: h.visibilityKm >= 15 ? '视野宽广，适合登高远眺' : '能见度一般，适合近景林道',
+        },
+      ] as EvaluationFactor[],
     };
   });
 
-  const hourlyScores = rawHikingHourly.map((item) => ({
-    hour: item.hour,
-    displayHour: item.displayHour,
-    score: item.score,
-    cloudCover: item.cloudCover,
-    detail: item.detail,
-  }));
+  const hourlyScores = rawHikingHourly;
+  const score = peakScore(hourlyScores);
+
+  let level: PhenomenonPrediction['level'] = 'poor';
+  let levelLabel = '天气欠佳·不宜户外';
+  let levelBadgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+  let summary = '受降水、大风或体感不适影响，山地步道湿滑，户外游览体验受限，建议推迟出行或选择室内展馆游览。';
+
+  if (score >= 85) {
+    level = 'excellent';
+    levelLabel = '黄金徒步·极佳';
+    levelBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    summary = '最佳时次气象条件极为理想，气温舒适、风力温和且无明显降雨，适合安排在这一小时前后出行。';
+  } else if (score >= 68) {
+    level = 'good';
+    levelLabel = '适宜徒步·良好';
+    levelBadgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
+    summary =
+      dailyMaxTemp >= 31
+        ? '最佳时次仍可出行，但全天高温、紫外线强，尽量选在清晨或傍晚，并备足饮水与防晒。'
+        : '最佳时次体感温和，适合大部分山地步道；其余小时请对照走势再定出发时间。';
+  } else if (score >= 50) {
+    level = 'moderate';
+    levelLabel = '徒步一般·慎行';
+    levelBadgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+    summary = '即使最好的一小时也只是中等条件，可能偏热、强晒或有零星小雨，建议缩短行程并备好防护。';
+  }
 
   return {
     id: 'travel_weather',

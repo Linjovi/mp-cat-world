@@ -27,9 +27,8 @@ export async function resolve(specifier, context, nextResolve) {
 }`;
 register(`data:text/javascript,${encodeURIComponent(loaderSource)}`, import.meta.url);
 
-const { alignAirQualityToWeatherHours, evaluateForecast, usableHeightMeters } = await import(
-  './weatherModel.ts'
-);
+const { alignAirQualityToWeatherHours, cloudSeaCoverageCeiling, evaluateForecast, usableHeightMeters } =
+  await import('./weatherModel.ts');
 
 interface WeatherOverrides {
   elevation?: number;
@@ -41,6 +40,7 @@ interface WeatherOverrides {
   temperature700hPa?: number;
   include700hPa?: boolean;
   convectiveCloudBase?: number | number[];
+  cloudCoverLow?: number;
 }
 
 function makeWeather(overrides: WeatherOverrides = {}): WeatherApiResponse {
@@ -67,7 +67,7 @@ function makeWeather(overrides: WeatherOverrides = {}): WeatherApiResponse {
       precipitation: fill(0),
       weather_code: fill(1),
       cloud_cover: fill(15),
-      cloud_cover_low: fill(60),
+      cloud_cover_low: fill(overrides.cloudCoverLow ?? 60),
       cloud_cover_mid: fill(45),
       cloud_cover_high: fill(40),
       visibility: fill(20000),
@@ -135,22 +135,38 @@ test('评分入口接入垂直层、气溶胶、体感阵风与逐时月光，�
   const withAir = evaluateForecast(weather, airQuality)[0];
   const withoutAir = evaluateForecast(weather, null)[0];
 
-  assert.ok(withAir.predictions.cloud_sea.factors.some((factor) => factor.name.includes('垂直层结')));
-  assert.ok(withAir.predictions.travel_weather.factors.some((factor) => factor.name.includes('阵风')));
   assert.ok(
-    withAir.predictions.starry_sky.factors.some(
-      (factor) => factor.name.includes('月相') && factor.hint.includes('逐时')
+    withAir.predictions.cloud_sea.hourlyScores.some((hour) =>
+      hour.factors.some((factor) => factor.name.includes('垂直层结'))
     )
   );
   assert.ok(
-    withAir.predictions.sunset_glow.factors.some(
+    withAir.predictions.travel_weather.hourlyScores.some((hour) =>
+      hour.factors.some((factor) => factor.name.includes('阵风'))
+    )
+  );
+  assert.ok(withAir.predictions.starry_sky.factors.some((factor) => factor.name.includes('月相')));
+  const starryNight = withAir.predictions.starry_sky.hourlyScores.find(
+    (hour) => hour.displayHour === '22:00'
+  );
+  assert.ok(
+    starryNight?.factors.some(
+      (factor) => factor.name.includes('月光') && factor.hint.includes('逐时')
+    )
+  );
+  const sunsetHour = withAir.predictions.sunset_glow.hourlyScores.find(
+    (hour) => hour.displayHour === '17:00'
+  );
+  assert.ok(
+    sunsetHour?.factors.some(
       (factor) => factor.name.includes('气溶胶') && !factor.value.includes('暂缺')
     )
   );
 
-  const missingAirFactor = withoutAir.predictions.sunset_glow.factors.find((factor) =>
-    factor.name.includes('气溶胶')
+  const missingSunsetHour = withoutAir.predictions.sunset_glow.hourlyScores.find(
+    (hour) => hour.displayHour === '17:00'
   );
+  const missingAirFactor = missingSunsetHour?.factors.find((factor) => factor.name.includes('气溶胶'));
   assert.equal(missingAirFactor?.value, '数据暂缺');
   assert.equal(missingAirFactor?.status, 'moderate');
 });
@@ -240,7 +256,9 @@ test('海拔为 0 显示 0 米，海拔缺失才显示未标定且不做层结�
   assert.equal(terrainOf(unknown), '未标定');
 
   const verticalOf = (prediction: typeof seaLevel) =>
-    prediction.factors.find((factor) => factor.name.includes('垂直层结'));
+    prediction.hourlyScores
+      .flatMap((hour) => hour.factors)
+      .find((factor) => factor.name.includes('垂直层结'));
   assert.equal(verticalOf(unknown)?.value, '未修正');
   assert.ok(verticalOf(unknown)?.hint.includes('海拔'));
 });
@@ -267,6 +285,7 @@ test('高海拔 1600m：700hPa 真逆温使云海评分高于无 700 字段', ()
     temperature925hPa: 18,
     temperature850hPa: 14,
     windGusts: 8,
+    cloudCoverLow: 85,
   };
   const without700 = evaluateForecast(makeWeather(alpine))[0].predictions.cloud_sea;
   const with700 = evaluateForecast(
@@ -277,10 +296,10 @@ test('高海拔 1600m：700hPa 真逆温使云海评分高于无 700 字段', ()
     with700.score > without700.score,
     `700hPa 逆温应抬高云海分: ${with700.score} vs ${without700.score}`
   );
-  assert.ok(
-    with700.factors.find((factor) => factor.name.includes('垂直层结'))?.hint.includes('700hPa'),
-    with700.factors.find((factor) => factor.name.includes('垂直层结'))?.hint
-  );
+  const with700Hint = with700.hourlyScores
+    .flatMap((hour) => hour.factors)
+    .find((factor) => factor.name.includes('垂直层结'))?.hint;
+  assert.ok(with700Hint?.includes('700hPa'), with700Hint);
 });
 
 test('对流云底哨兵 -500 不得污染平均或产生云底加分文案', () => {
@@ -291,8 +310,12 @@ test('对流云底哨兵 -500 不得污染平均或产生云底加分文案', ()
   const allSentinel = evaluateForecast(
     makeWeather({ elevation: 1500, convectiveCloudBase: -500 })
   )[0].predictions.cloud_sea;
-  const verticalHint = allSentinel.factors.find((factor) => factor.name.includes('垂直层结'))?.hint || '';
-  assert.equal(/可俯瞰云海|云底约/.test(verticalHint), false, verticalHint);
+  const verticalHints = allSentinel.hourlyScores
+    .flatMap((hour) => hour.factors)
+    .filter((factor) => factor.name.includes('垂直层结'))
+    .map((factor) => factor.hint)
+    .join('\n');
+  assert.equal(/可俯瞰云海|云底约/.test(verticalHints), false, verticalHints);
 
   // 清晨 05-08 中三小时哨兵、一小时真实高云底：污染平均会变成假低云底并加分
   const mixedBases = Array.from({ length: 24 }, () => 2000);
@@ -303,6 +326,59 @@ test('对流云底哨兵 -500 不得污染平均或产生云底加分文案', ()
   const mixed = evaluateForecast(
     makeWeather({ elevation: 1500, convectiveCloudBase: mixedBases })
   )[0].predictions.cloud_sea;
-  const mixedHint = mixed.factors.find((factor) => factor.name.includes('垂直层结'))?.hint || '';
-  assert.equal(/可俯瞰云海/.test(mixedHint), false, mixedHint);
+  const mixedHints = mixed.hourlyScores
+    .flatMap((hour) => hour.factors)
+    .filter((factor) => factor.name.includes('垂直层结'))
+    .map((factor) => factor.hint)
+    .join('\n');
+  assert.equal(/可俯瞰云海/.test(mixedHints), false, mixedHints);
+});
+
+test('当天评分等于分时最高分，逐时成因随小时变化', () => {
+  const weather = makeWeather();
+  weather.hourly.cloud_cover_low[6] = 90;
+  weather.hourly.cloud_cover_low[15] = 5;
+  const day = evaluateForecast(weather, makeAirQuality(weather, 0.2, 25))[0];
+
+  for (const prediction of Object.values(day.predictions)) {
+    const peak = prediction.hourlyScores.reduce((max, hour) => Math.max(max, hour.score), 0);
+    assert.equal(prediction.score, peak, `${prediction.id} 总分应等于分时最高分`);
+    for (const hour of prediction.hourlyScores) {
+      assert.ok(hour.factors.length > 0, `${prediction.id} ${hour.displayHour} 缺少分时成因`);
+    }
+  }
+
+  assert.deepEqual(day.predictions.sunrise.factors, []);
+  assert.ok(day.predictions.cloud_sea.factors.some((factor) => factor.name.includes('海拔')));
+  assert.equal(
+    day.predictions.cloud_sea.factors.some((factor) => factor.name.includes('低层云')),
+    false
+  );
+
+  const scoreAt = (hour: number) =>
+    day.predictions.cloud_sea.hourlyScores.find(
+      (item) => item.displayHour === `${String(hour).padStart(2, '0')}:00`
+    )?.score ?? 0;
+  assert.ok(scoreAt(6) > scoreAt(15), `低云 90% 应高于 5%: ${scoreAt(6)} vs ${scoreAt(15)}`);
+});
+
+test('低云 50% 即使其余条件很好也不能打到满分', () => {
+  const weather = makeWeather({
+    elevation: 1558,
+    cloudCoverLow: 50,
+    windGusts: 6,
+  });
+  weather.hourly.relative_humidity_2m = weather.hourly.time.map(() => 92);
+  weather.hourly.dew_point_2m = weather.hourly.time.map(() => 16);
+  weather.hourly.cloud_cover_mid = weather.hourly.time.map(() => 8);
+  weather.hourly.cloud_cover_high = weather.hourly.time.map(() => 6);
+
+  const seven = evaluateForecast(weather)[0].predictions.cloud_sea.hourlyScores.find(
+    (hour) => hour.displayHour === '07:00'
+  );
+
+  assert.ok(seven);
+  assert.ok(seven.score <= 60, `50% 低云 7 点不应满分: ${seven.score}`);
+  assert.equal(cloudSeaCoverageCeiling(50), 60);
+  assert.ok(seven.score <= cloudSeaCoverageCeiling(50));
 });
