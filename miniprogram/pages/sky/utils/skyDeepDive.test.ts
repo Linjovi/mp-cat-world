@@ -52,11 +52,10 @@ test('日出低云和总云量只出现在柱状图', () => {
   assert.ok(dive.layers.some((layer) => layer.title.includes('总云量')));
 });
 
-test('晚霞西向低云与中高云只出现在柱状图', () => {
+test('晚霞高云、中云、低云只出现在柱状图', () => {
   const dive = decorateSkyHour('sunset_glow', hour);
-  assert.equal(dive.metrics.some((m) => /低云|中高云/.test(m.name)), false);
-  assert.equal(
-    dive.layers.find((layer) => layer.title.includes('中高云'))?.pct,
-    15
-  );
+  assert.equal(dive.metrics.some((m) => /低云|中云|高云/.test(m.name)), false);
+  assert.equal(dive.layers.find((layer) => layer.title.includes('高云'))?.pct, 10);
+  assert.equal(dive.layers.find((layer) => layer.title.includes('中云'))?.pct, 20);
+  assert.equal(dive.layers.find((layer) => layer.title.includes('低云'))?.pct, 72);
 });

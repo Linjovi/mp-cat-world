@@ -60,7 +60,7 @@ export function getSkyInsightMeta(tab: PhenomenonType): SkyInsightMeta {
   if (tab === 'sunset_glow') {
     return {
       title: '24 小时晚霞云幕与光路剖析',
-      subtitle: '西向低云、中高云画布与空气通透度',
+      subtitle: '高云幕布、中云纹理、低云遮挡与空气通透度',
     };
   }
   return {
@@ -87,8 +87,8 @@ export function decorateSkyHour(tab: PhenomenonType, hour: SkyHourSource): SkyHo
 
 const TOPIC_RULES: { key: string; match: RegExp }[] = [
   { key: 'low-cloud', match: /低云|低空云/ },
-  { key: 'mid-cloud', match: /中空云|中高云/ },
-  { key: 'high-cloud', match: /高空云|总云量/ },
+  { key: 'mid-cloud', match: /中空云|中高云|中云/ },
+  { key: 'high-cloud', match: /高空云|总云量|高云/ },
   { key: 'humidity', match: /湿度|结露/ },
   { key: 'precip', match: /降水/ },
   { key: 'visibility', match: /能见度/ },
@@ -129,11 +129,11 @@ function metricsForTab(tab: PhenomenonType, hour: SkyHourSource): SkyMetric[] {
     ];
   }
   if (tab === 'sunset_glow') {
-    const canvas = midHighCanvas(hour);
     return [
       { name: '能见度', value: `${hour.visibilityKm}km` },
-      { name: '西向低云', value: `${hour.cloudLow}%` },
-      { name: '中高云', value: `${canvas}%` },
+      { name: '高云', value: `${hour.cloudHigh}%` },
+      { name: '中云', value: `${hour.cloudMid}%` },
+      { name: '低云', value: `${hour.cloudLow}%` },
       { name: '湿度', value: `${hour.humidity}%` },
       { name: '降水概率', value: `${hour.precipProb}%` },
     ];
@@ -171,8 +171,9 @@ function layersForTab(tab: PhenomenonType, hour: SkyHourSource): SkyLayer[] {
   }
   if (tab === 'sunset_glow') {
     return [
-      { title: '西向低云 (挡光路)', pct: hour.cloudLow, kind: 'low-cloud' },
-      { title: '中高云画布 (2000m+)', pct: midHighCanvas(hour), kind: 'mid-cloud' },
+      { title: '高云幕布', pct: hour.cloudHigh, kind: 'high-cloud' },
+      { title: '中云纹理', pct: hour.cloudMid, kind: 'mid-cloud' },
+      { title: '低云遮挡', pct: hour.cloudLow, kind: 'low-cloud' },
     ];
   }
   if (tab === 'starry_sky') {
@@ -188,6 +189,3 @@ function layersForTab(tab: PhenomenonType, hour: SkyHourSource): SkyLayer[] {
   ];
 }
 
-function midHighCanvas(hour: SkyHourSource): number {
-  return Math.round((hour.cloudMid + hour.cloudHigh) / 2);
-}

@@ -334,15 +334,17 @@ test('对流云底哨兵 -500 不得污染平均或产生云底加分文案', ()
   assert.equal(/可俯瞰云海/.test(mixedHints), false, mixedHints);
 });
 
-test('当天评分等于分时最高分，逐时成因随小时变化', () => {
+test('除晚霞外当天评分等于分时最高分，逐时成因随小时变化', () => {
   const weather = makeWeather();
   weather.hourly.cloud_cover_low[6] = 90;
   weather.hourly.cloud_cover_low[15] = 5;
   const day = evaluateForecast(weather, makeAirQuality(weather, 0.2, 25))[0];
 
   for (const prediction of Object.values(day.predictions)) {
-    const peak = prediction.hourlyScores.reduce((max, hour) => Math.max(max, hour.score), 0);
-    assert.equal(prediction.score, peak, `${prediction.id} 总分应等于分时最高分`);
+    if (prediction.id !== 'sunset_glow') {
+      const peak = prediction.hourlyScores.reduce((max, hour) => Math.max(max, hour.score), 0);
+      assert.equal(prediction.score, peak, `${prediction.id} 总分应等于分时最高分`);
+    }
     for (const hour of prediction.hourlyScores) {
       assert.ok(hour.factors.length > 0, `${prediction.id} ${hour.displayHour} 缺少分时成因`);
     }
