@@ -7,14 +7,13 @@ import type {
 import { calculateMoonInfo, formatHourTime } from './astronomy';
 import type { EvaluationContext } from './scoring/context';
 import { evaluateCloudSea } from './scoring/cloudSea';
-import { finiteValue, usableHeightMeters } from './scoring/number';
+import { finiteValue } from './scoring/number';
 import { evaluateStarrySky } from './scoring/starrySky';
 import { evaluateSunrise } from './scoring/sunrise';
 import { evaluateSunsetGlow } from './scoring/sunsetGlow';
 import { evaluateTravelWeather } from './scoring/travelWeather';
 
 export { cloudSeaCoverageCeiling } from './scoring/cloudSea';
-export { usableHeightMeters } from './scoring/number';
 export { evaluateTravelWeather } from './scoring/travelWeather';
 
 /** 兼容旧名：日出评分即朝霞评分。 */
@@ -102,10 +101,6 @@ function extractDayHours(
         relativeHumidity925: finiteValue(hourly.relative_humidity_925hPa?.[i]),
         relativeHumidity850: finiteValue(hourly.relative_humidity_850hPa?.[i]),
         relativeHumidity700: finiteValue(hourly.relative_humidity_700hPa?.[i]),
-        cloud925: finiteValue(hourly.cloud_cover_925hPa?.[i]),
-        cloud850: finiteValue(hourly.cloud_cover_850hPa?.[i]),
-        cloud700: finiteValue(hourly.cloud_cover_700hPa?.[i]),
-        convectiveCloudBase: usableHeightMeters(hourly.convective_cloud_base?.[i]),
         pm2_5: alignedAirQuality[i]?.pm2_5,
         aod: alignedAirQuality[i]?.aod,
       });

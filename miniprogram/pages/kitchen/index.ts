@@ -1,4 +1,11 @@
-import { fetchCategories, fetchRecipes, fetchRecommend, fetchTips, fetchRecipeDetail } from './lib/api'
+import {
+  fetchCategories,
+  fetchRecipes,
+  fetchRecommend,
+  fetchTips,
+  fetchRecipeDetail,
+  getCachedCategories,
+} from './lib/api'
 import {
   getNavMetrics,
   groupShopping,
@@ -102,6 +109,8 @@ Page({
 
   onLoad(query: Record<string, string | undefined>) {
     const parsed = parseKitchenQuery(query)
+    const cachedCategories = getCachedCategories() || []
+    const totalCount = cachedCategories.reduce((sum, item) => sum + item.count, 0)
     this.setData({
       ...getNavMetrics(),
       tab: parsed.tab,
@@ -109,6 +118,15 @@ Page({
       page: parsed.page,
       tipGroup: parsed.group,
       searchQuery: parsed.q,
+      ...(cachedCategories.length > 0
+        ? {
+            categories: cachedCategories.map((item) => ({
+              ...item,
+              href: buildKitchenPath({ tab: 'recipes', category: item.id }),
+            })),
+            totalCount,
+          }
+        : {}),
     })
     this.refreshListHrefs()
     wx.setNavigationBarTitle({ title: kitchenNavTitle(parsed.tab) })
@@ -250,20 +268,61 @@ Page({
     this.setData({ showFilter: !this.data.showFilter })
   },
 
+  onCategory(event: WechatMiniprogram.TouchEvent) {
+    const id = (event.currentTarget.dataset.id || 'all') as string
+    if (this.data.selectedCategory === id) return
+    this.setData({
+      selectedCategory: id,
+      page: 1,
+    })
+    this.refreshListHrefs()
+    this.loadRecipes()
+  },
+
+  onTab(event: WechatMiniprogram.TouchEvent) {
+    const tab = event.currentTarget.dataset.tab as KitchenTab
+    if (this.data.tab === tab) return
+    this.setData({ tab })
+    this.refreshListHrefs()
+    wx.setNavigationBarTitle({ title: kitchenNavTitle(tab) })
+    if (tab === 'recommend' && !this.data.recommend && !this.data.recommendLoading) this.loadRecommend()
+    if (tab === 'tips' && this.data.tips.length === 0 && !this.data.tipsLoading) this.loadTips()
+    if (tab === 'kitchen') this.syncKitchen()
+  },
+
+  onPrevPage() {
+    if (this.data.page <= 1) return
+    this.setData({ page: this.data.page - 1 })
+    this.refreshListHrefs()
+    this.loadRecipes()
+    wx.pageScrollTo({ scrollTop: 0, duration: 200 })
+  },
+
+  onNextPage() {
+    if (this.data.page >= this.data.totalPages) return
+    this.setData({ page: this.data.page + 1 })
+    this.refreshListHrefs()
+    this.loadRecipes()
+    wx.pageScrollTo({ scrollTop: 0, duration: 200 })
+  },
+
   onDifficulty(event: WechatMiniprogram.TouchEvent) {
     const difficultyFilter = Number(event.currentTarget.dataset.value)
     this.setData({ difficultyFilter, page: 1 })
+    this.refreshListHrefs()
     this.loadRecipes()
   },
 
   onSortField(event: WechatMiniprogram.TouchEvent) {
     const sortField = event.currentTarget.dataset.field as 'name' | 'difficulty' | 'calories'
     this.setData({ sortField, page: 1 })
+    this.refreshListHrefs()
     this.loadRecipes()
   },
 
   onToggleOrder() {
     this.setData({ sortOrder: this.data.sortOrder === 'asc' ? 'desc' : 'asc', page: 1 })
+    this.refreshListHrefs()
     this.loadRecipes()
   },
 
@@ -276,6 +335,7 @@ Page({
       sortOrder: 'asc',
       page: 1,
     })
+    this.refreshListHrefs()
     this.loadRecipes()
   },
 
@@ -391,6 +451,14 @@ Page({
 
   onResetTips() {
     this.setData({ tipQuery: '', tipGroup: 'all' })
+    this.loadTips()
+  },
+
+  onTipGroup(event: WechatMiniprogram.TouchEvent) {
+    const group = (event.currentTarget.dataset.id || 'all') as TipGroup
+    if (this.data.tipGroup === group) return
+    this.setData({ tipGroup: group })
+    this.refreshListHrefs()
     this.loadTips()
   },
 

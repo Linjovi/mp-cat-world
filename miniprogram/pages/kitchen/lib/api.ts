@@ -43,8 +43,57 @@ function resourcePath(kind: 'recipes' | 'tips', id: string): string {
   return `/${kind}/${encoded}`
 }
 
-export function fetchCategories(): Promise<Category[]> {
-  return request<{ categories: Category[] }>('/categories').then((data) => data.categories)
+const CATEGORIES_STORAGE_KEY = 'howtocook_categories_cache'
+let memoryCategories: Category[] | null = null
+let categoriesPromise: Promise<Category[]> | null = null
+
+export function getCachedCategories(): Category[] | null {
+  if (memoryCategories && memoryCategories.length > 0) {
+    return memoryCategories
+  }
+  try {
+    if (typeof wx !== 'undefined' && wx.getStorageSync) {
+      const raw = wx.getStorageSync(CATEGORIES_STORAGE_KEY)
+      if (raw) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          memoryCategories = parsed
+          return parsed
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('read cached categories failed', e)
+  }
+  return null
+}
+
+export function fetchCategories(forceRefresh = false): Promise<Category[]> {
+  if (!forceRefresh) {
+    const cached = getCachedCategories()
+    if (cached) {
+      return Promise.resolve(cached)
+    }
+  }
+  if (categoriesPromise) {
+    return categoriesPromise
+  }
+  categoriesPromise = request<{ categories: Category[] }>('/categories')
+    .then((data) => {
+      memoryCategories = data.categories
+      try {
+        if (typeof wx !== 'undefined' && wx.setStorageSync) {
+          wx.setStorageSync(CATEGORIES_STORAGE_KEY, data.categories)
+        }
+      } catch (e) {
+        console.warn('save categories cache failed', e)
+      }
+      return data.categories
+    })
+    .finally(() => {
+      categoriesPromise = null
+    })
+  return categoriesPromise
 }
 
 export interface RecipeQuery {
@@ -57,16 +106,88 @@ export interface RecipeQuery {
   pageSize?: number
 }
 
-export function fetchRecipes(params: RecipeQuery = {}): Promise<RecipeListResponse> {
+function isDefaultRecipeQuery(params: RecipeQuery = {}): boolean {
+  const isDefaultCategory = !params.category || params.category === 'all'
+  const isDefaultDifficulty = params.difficulty === undefined || params.difficulty === 0
+  const isDefaultQ = !params.q || !params.q.trim()
+  const isDefaultSort = !params.sort || params.sort === 'name'
+  const isDefaultOrder = !params.order || params.order === 'asc'
+  const isDefaultPage = !params.page || params.page === 1
+  const isDefaultPageSize = !params.pageSize || params.pageSize === 20
+  return (
+    isDefaultCategory &&
+    isDefaultDifficulty &&
+    isDefaultQ &&
+    isDefaultSort &&
+    isDefaultOrder &&
+    isDefaultPage &&
+    isDefaultPageSize
+  )
+}
+
+let defaultRecipesPromise: Promise<RecipeListResponse> | null = null
+let cachedDefaultRecipes: { data: RecipeListResponse; timestamp: number } | null = null
+const DEFAULT_RECIPES_TTL = 5 * 60 * 1000 // 5 分钟有效
+
+export function getCachedDefaultRecipes(): RecipeListResponse | null {
+  if (cachedDefaultRecipes && Date.now() - cachedDefaultRecipes.timestamp < DEFAULT_RECIPES_TTL) {
+    return cachedDefaultRecipes.data
+  }
+  return null
+}
+
+export function fetchRecipes(params: RecipeQuery = {}, forceRefresh = false): Promise<RecipeListResponse> {
+  const isDefault = isDefaultRecipeQuery(params)
+  if (isDefault && !forceRefresh) {
+    const cached = getCachedDefaultRecipes()
+    if (cached) {
+      return Promise.resolve(cached)
+    }
+    if (defaultRecipesPromise) {
+      return defaultRecipesPromise
+    }
+  }
+
   const query: Record<string, string | number> = {}
-  if (params.category) query.category = params.category
-  if (params.difficulty !== undefined) query.difficulty = params.difficulty
+  if (params.category && params.category !== 'all') query.category = params.category
+  if (params.difficulty !== undefined && params.difficulty > 0) query.difficulty = params.difficulty
   if (params.q && params.q.trim()) query.q = params.q.trim()
   if (params.sort) query.sort = params.sort
   if (params.order) query.order = params.order
   if (params.page !== undefined) query.page = params.page
   if (params.pageSize !== undefined) query.pageSize = params.pageSize
-  return request<RecipeListResponse>('/recipes', query)
+
+  const req = request<RecipeListResponse>('/recipes', query)
+
+  if (isDefault) {
+    defaultRecipesPromise = req
+      .then((data) => {
+        cachedDefaultRecipes = { data, timestamp: Date.now() }
+        return data
+      })
+      .finally(() => {
+        defaultRecipesPromise = null
+      })
+    return defaultRecipesPromise
+  }
+
+  return req
+}
+
+export function preloadKitchenHome(): void {
+  fetchCategories().catch((err) => {
+    console.warn('[Preload] fetchCategories failed:', err)
+  })
+  fetchRecipes({ page: 1, pageSize: 20, sort: 'name', order: 'asc' }).catch((err) => {
+    console.warn('[Preload] fetchRecipes failed:', err)
+  })
+}
+
+export function _clearKitchenApiCache(): void {
+  memoryCategories = null
+  categoriesPromise = null
+  defaultRecipesPromise = null
+  cachedDefaultRecipes = null
 }
 
 export function fetchRecipeDetail(id: string): Promise<RecipeDetail> {

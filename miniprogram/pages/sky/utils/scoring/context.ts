@@ -44,10 +44,6 @@ export interface EvaluationContext {
     relativeHumidity925?: number;
     relativeHumidity850?: number;
     relativeHumidity700?: number;
-    cloud925?: number;
-    cloud850?: number;
-    cloud700?: number;
-    convectiveCloudBase?: number;
     pm2_5?: number;
     aod?: number;
   }[];

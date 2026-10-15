@@ -1,4 +1,6 @@
 
+import { preloadKitchenHome } from '../kitchen/lib/api'
+
 Component({
   options: {
     styleIsolation: 'shared'
@@ -41,6 +43,7 @@ Component({
         paddingTop: statusBarHeight
       });
       wx.setNavigationBarTitle({ title: '呼噜呼噜的小世界' });
+      preloadKitchenHome();
     }
   },
   methods: {

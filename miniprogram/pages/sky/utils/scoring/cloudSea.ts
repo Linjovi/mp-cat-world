@@ -1,5 +1,4 @@
 import type { EvaluationFactor, PhenomenonPrediction } from '../../types';
-import { shiftTimeString } from '../astronomy';
 import type { EvaluationContext, HourSlice, ScoreAdjustment, ScoreAdjustmentRange } from './context';
 import { clamp, clampScore, isFiniteNumber, peakScore, roundTo } from './number';
 
@@ -34,13 +33,6 @@ export interface CloudSeaVerticalInput {
   temperature850hPa?: number;
   /** 700hPa 温度，供高海拔观测点使用（925/850 常位于山顶地表以下） */
   temperature700hPa?: number;
-  /**
-   * 对流云底高度 (m)。
-   * 假设与 observerElevation 同为海平面基准 (AMSL)；官方文档未明确基准，
-   * 因此这里不做任何换算，只按同基准直接比较，并在解释中声明该假设。
-   * Open-Meteo 在无对流云时会返回 -500 等哨兵值，非正数一律按缺失处理。
-   */
-  convectiveCloudBase?: number;
   /** 观测点海拔 (m) */
   observerElevation?: number;
   /** 阵风 (km/h) */
@@ -54,8 +46,6 @@ export interface CloudSeaVerticalAdjustment extends ScoreAdjustment {
   inversionDetected: boolean;
   /** 逆温层内的升温幅度 (°C)，无逆温为 0 */
   inversionStrength: number;
-  /** 云底是否低于观测点；数据不足为 null */
-  cloudBaseBelowObserver: boolean | null;
 }
 
 interface ProfilePoint {
@@ -65,7 +55,8 @@ interface ProfilePoint {
 }
 
 /**
- * 云海垂直结构修正：综合地面/925/850 hPa 温度层结、对流云底与阵风。
+ * 云海垂直结构修正：只用观测点及其上方的温度层结，再加上阵风。
+ * 云量不在这里判断，低中高云由 evaluateCloudSea 单独计分。
  *
  * 关键点：气压层高度是近似值，且只有位于观测点上方的层次才参与比较，
  * 否则"山下更暖"这种正常的温度递减会被误判成逆温。
@@ -148,35 +139,6 @@ export function evaluateCloudSeaVerticalAdjustment(
     }
   }
 
-  // Open-Meteo 无对流云时返回 -500 一类的哨兵值，必须按缺失处理，否则会被当成脚下云海
-  const cloudBase =
-    isFiniteNumber(input.convectiveCloudBase) && input.convectiveCloudBase > 0
-      ? input.convectiveCloudBase
-      : null;
-
-  let cloudBaseBelowObserver: boolean | null = null;
-  if (cloudBase !== null && elevation !== null) {
-    const diff = elevation - cloudBase;
-    cloudBaseBelowObserver = diff > 50;
-    notes.push('云底高度按海平面基准 (AMSL) 与观测点海拔直接比较，未做基准换算');
-    if (diff >= 300) {
-      delta += 4;
-      notes.push(`云底约 ${Math.round(cloudBase)}m，低于观测点约 ${Math.round(diff)}m，可俯瞰云海`);
-    } else if (diff > 50) {
-      delta += 2;
-      notes.push('云底略低于观测点，云海高度贴近视线');
-    } else if (diff > -200) {
-      notes.push('云底与观测点高度接近，可能置身云雾之中');
-    } else {
-      delta -= 2;
-      notes.push('云底高于观测点，更像头顶低云而非脚下云海');
-    }
-  } else if (isFiniteNumber(input.convectiveCloudBase) && cloudBase === null) {
-    notes.push('数据显示无对流云底（哨兵值），未做云底修正');
-  } else {
-    notes.push('缺少云底或观测点海拔数据，未做云底修正');
-  }
-
   if (isFiniteNumber(input.windGusts)) {
     const gusts = input.windGusts;
     if (gusts >= 50) {
@@ -203,7 +165,6 @@ export function evaluateCloudSeaVerticalAdjustment(
     notes,
     inversionDetected,
     inversionStrength,
-    cloudBaseBelowObserver,
   };
 }
 
@@ -221,87 +182,192 @@ export function cloudSeaCoverageCeiling(cloudLow: number): number {
   return 28;
 }
 
-/** 气压层湿度和云量只做小幅修正，避免和地面湿度、低云重复计太高。 */
-function boundaryLayerMoisture(h: HourSlice): { delta: number; note: string } {
-  const rh = h.relativeHumidity925 ?? h.relativeHumidity850 ?? h.relativeHumidity700;
-  const cloud = h.cloud925 ?? h.cloud850 ?? h.cloud700;
-  if (rh === undefined && cloud === undefined) {
-    return { delta: 0, note: '气压层湿度与云量数据缺失' };
+const PRESSURE_HUMIDITY_LEVELS = [
+  { key: 'rh925', label: '925hPa', pressure: 925 },
+  { key: 'rh850', label: '850hPa', pressure: 850 },
+  { key: 'rh700', label: '700hPa', pressure: 700 },
+] as const;
+
+/** 观测点上下各 200m 内算作同一高度层，再远才分山腰和头顶。 */
+const HUMIDITY_LEVEL_MARGIN = 200;
+
+export interface CloudSeaPressureHumidityInput {
+  elevation?: number;
+  pressureMsl?: number;
+  rh925?: number;
+  rh850?: number;
+  rh700?: number;
+}
+
+/**
+ * 三层气压湿度一起看：山腰湿、头顶干才加分。
+ * 整层都湿只给很小的修正，避免和地面湿度重复把「人在雾里」加成云海。
+ */
+export function evaluateCloudSeaPressureHumidity(
+  input: CloudSeaPressureHumidityInput
+): { delta: number; note: string } {
+  const present = PRESSURE_HUMIDITY_LEVELS.flatMap((level) => {
+    const rh = input[level.key];
+    if (!isFiniteNumber(rh)) return [];
+    return [
+      {
+        label: level.label,
+        rh,
+        height: approximatePressureLevelAltitude(level.pressure, input.pressureMsl),
+      },
+    ];
+  });
+  if (present.length === 0) {
+    return { delta: 0, note: '气压层湿度数据缺失' };
   }
+
+  const reading = present.map((level) => `${level.label} ${Math.round(level.rh)}%`).join(' · ');
+  const elevation = isFiniteNumber(input.elevation) ? input.elevation : null;
+  if (elevation === null) {
+    const mean = present.reduce((sum, level) => sum + level.rh, 0) / present.length;
+    return { delta: columnMoistureDelta(mean), note: reading };
+  }
+
+  const below = present.filter((level) => level.height < elevation - HUMIDITY_LEVEL_MARGIN);
+  const near = present.filter(
+    (level) =>
+      level.height >= elevation - HUMIDITY_LEVEL_MARGIN &&
+      level.height <= elevation + HUMIDITY_LEVEL_MARGIN
+  );
+  const above = present.filter((level) => level.height > elevation + HUMIDITY_LEVEL_MARGIN);
+  const meanOf = (levels: typeof present) =>
+    levels.reduce((sum, level) => sum + level.rh, 0) / levels.length;
+  const deckLevels = below.length > 0 ? below : near;
+  const overhead = above.length > 0 ? meanOf(above) : undefined;
+
+  if (deckLevels.length === 0) {
+    const upper = overhead ?? 0;
+    const delta = upper >= 85 ? 1 : upper < 45 ? -2 : 0;
+    return {
+      delta,
+      note: `${reading}。可用气压层都在观测点上方`,
+    };
+  }
+
+  const deck = meanOf(deckLevels);
+  const eye = near.length > 0 ? meanOf(near) : undefined;
   let delta = 0;
-  const notes: string[] = [];
-  if (rh === undefined) {
-    notes.push('气压层湿度数据缺失');
-  } else if (rh >= 90) {
-    delta += 3;
-    notes.push(`气压层湿度 ${Math.round(rh)}%，低层水汽充足`);
-  } else if (rh >= 70) {
-    delta += 1;
-    notes.push(`气压层湿度 ${Math.round(rh)}%`);
-  } else if (rh < 45) {
-    delta -= 3;
-    notes.push(`气压层湿度仅 ${Math.round(rh)}%，水汽偏干`);
-  } else {
-    notes.push(`气压层湿度 ${Math.round(rh)}%`);
+  let interpretation = '气压层湿度中等';
+  if (deck >= 80 && (eye === undefined || eye <= 75) && (overhead === undefined || overhead <= 60)) {
+    delta = 4;
+    interpretation = '山腰湿、头顶偏干，水汽贴在观测点下方';
+  } else if (deck >= 85 && eye !== undefined && eye >= 85) {
+    delta = 1;
+    interpretation = '观测高度附近的气压层也偏湿';
+  } else if (deck < 50) {
+    delta = -3;
+    interpretation = '山腰气压层偏干，云海水汽不足';
+  } else if (deck >= 70) {
+    delta = 1;
+    interpretation = '山腰气压层有一定水汽';
   }
-  if (cloud === undefined) {
-    notes.push('气压层云量数据缺失');
-  } else if (cloud >= 70) {
-    delta += 2;
-    notes.push(`气压层云量 ${Math.round(cloud)}%，云层有厚度`);
-  } else if (cloud < 20) {
-    delta -= 1;
-    notes.push(`气压层云量 ${Math.round(cloud)}%，云层偏薄`);
-  } else {
-    notes.push(`气压层云量 ${Math.round(cloud)}%`);
+  return { delta, note: `${reading}。${interpretation}` };
+}
+
+function columnMoistureDelta(mean: number): number {
+  if (mean >= 90) return 3;
+  if (mean >= 70) return 1;
+  if (mean < 45) return -3;
+  return 0;
+}
+
+/** 气压层湿度只做小幅修正。云量仍以低中高云为准。 */
+function boundaryLayerMoisture(h: HourSlice, elevation?: number): { delta: number; note: string } {
+  return evaluateCloudSeaPressureHumidity({
+    elevation,
+    pressureMsl: h.pressureMsl,
+    rh925: h.relativeHumidity925,
+    rh850: h.relativeHumidity850,
+    rh700: h.relativeHumidity700,
+  });
+}
+
+/** 能见度只加减分，不单独封住云海分数的上下限。 */
+export function evaluateCloudSeaVisibility(visibilityKm: number): { delta: number; note: string } {
+  if (!isFiniteNumber(visibilityKm)) {
+    return { delta: 0, note: '能见度数据缺失' };
   }
-  return { delta: Math.max(-4, Math.min(4, delta)), note: notes.join('；') };
+  const km = Math.max(0, visibilityKm);
+  const shown = String(Math.round(km));
+  if (km >= 10) {
+    return { delta: 4, note: `能见度 ${shown} km，山顶空气通透` };
+  }
+  if (km >= 4) {
+    return { delta: 2, note: `能见度 ${shown} km` };
+  }
+  if (km >= 1) {
+    return { delta: 0, note: `能见度 ${shown} km` };
+  }
+  return { delta: -5, note: `能见度 ${shown} km，观测点附近像在雾里` };
+}
+
+export interface CloudSeaWindowHour {
+  hourNum: number;
+  score: number;
+}
+
+function formatClockHour(hourNum: number): string {
+  return `${String(hourNum).padStart(2, '0')}:00`;
+}
+
+/**
+ * 最佳窗口取分时高分连成的一段。结束时间是最后一小时的下一小时，
+ * 所以 4 点、5 点最高时窗口是 04:00 - 06:00。
+ */
+export function cloudSeaObservationWindow(hours: CloudSeaWindowHour[]): {
+  start: string;
+  end: string;
+  minutes: number;
+} {
+  if (hours.length === 0) {
+    return { start: '05:00', end: '07:00', minutes: 120 };
+  }
+  let peakIndex = 0;
+  for (let i = 1; i < hours.length; i++) {
+    if (hours[i].score > hours[peakIndex].score) peakIndex = i;
+  }
+  const peak = hours[peakIndex].score;
+  const threshold = Math.round(peak * 0.8);
+  const beside = (left: number, right: number) => Math.abs(hours[left].hourNum - hours[right].hourNum) === 1;
+
+  let startIndex = peakIndex;
+  let endIndex = peakIndex;
+  while (startIndex > 0 && beside(startIndex - 1, startIndex) && hours[startIndex - 1].score >= threshold) {
+    startIndex--;
+  }
+  while (
+    endIndex < hours.length - 1 &&
+    beside(endIndex, endIndex + 1) &&
+    hours[endIndex + 1].score >= threshold
+  ) {
+    endIndex++;
+  }
+
+  const maxHours = 6;
+  while (endIndex - startIndex + 1 > maxHours) {
+    if (peakIndex - startIndex >= endIndex - peakIndex) startIndex++;
+    else endIndex--;
+  }
+
+  const startHour = hours[startIndex].hourNum;
+  const endHour = (hours[endIndex].hourNum + 1) % 24;
+  return {
+    start: formatClockHour(startHour),
+    end: formatClockHour(endHour),
+    minutes: (endIndex - startIndex + 1) * 60,
+  };
 }
 
 /**
  * Evaluate Sea of Clouds (云海)
  */
 export function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
-  // Peak observation hours: early morning 05:00 - 08:30, or late afternoon 16:30 - 18:30
-  // Morning hours (5, 6, 7, 8)
-  const morningHours = ctx.hourly.filter((h) => h.hourNum >= 5 && h.hourNum <= 8);
-  const sample = morningHours.length > 0 ? morningHours : ctx.hourly.slice(5, 9);
-
-  const avgHumidity = Math.round(sample.reduce((s, h) => s + h.humidity, 0) / (sample.length || 1));
-  const avgWind = Math.round(sample.reduce((s, h) => s + h.windSpeed, 0) / (sample.length || 1));
   const elevation = ctx.elevation;
-
-  // 稳定窗口是全天尺度的持续时间，不参与总分；总分只取分时最高分
-  let windowMinutes = 120;
-  if (avgWind <= 12 && avgHumidity >= 80) {
-    windowMinutes = 180;
-  } else if (avgWind <= 18 && avgHumidity >= 68) {
-    windowMinutes = 120;
-  } else if (avgWind <= 25) {
-    windowMinutes = 75;
-  } else {
-    windowMinutes = 40;
-  }
-
-  let windowStatus: 'optimal' | 'good' | 'moderate' = 'good';
-  let windowLabel = '适中稳定';
-  if (windowMinutes >= 150) {
-    windowStatus = 'optimal';
-    windowLabel = '绵延充裕';
-  } else if (windowMinutes >= 100) {
-    windowStatus = 'good';
-    windowLabel = '适中稳定';
-  } else if (windowMinutes >= 60) {
-    windowStatus = 'moderate';
-    windowLabel = '窗口偏短·消散快';
-  } else {
-    windowStatus = 'moderate';
-    windowLabel = '稍纵即散';
-  }
-
-  const sunriseHHMM = ctx.sunriseTime || '06:00';
-  const bestTimeStart = shiftTimeString(sunriseHHMM, -40);
-  const bestTimeEnd = shiftTimeString(sunriseHHMM, Math.min(180, windowMinutes));
 
   const rawHourlyScores = ctx.hourly.map((h) => {
     let hScore = 8;
@@ -338,7 +404,7 @@ export function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
     else if (h.precip > 0.2 || h.precipProb > 40) hScore -= 10;
     if (h.code >= 45 && h.code <= 48 && h.precipProb <= 30) hScore += 4;
 
-    const moisture = boundaryLayerMoisture(h);
+    const moisture = boundaryLayerMoisture(h, elevation);
     hScore += moisture.delta;
 
     let timeFactor = 0.40;
@@ -363,14 +429,14 @@ export function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
       temperature925hPa: h.temperature925,
       temperature850hPa: h.temperature850,
       temperature700hPa: h.temperature700,
-      convectiveCloudBase: h.convectiveCloudBase,
       observerElevation: ctx.elevation,
       windGusts: h.gusts,
       pressureMsl: h.pressureMsl,
     });
+    const visibility = evaluateCloudSeaVisibility(h.visibilityKm);
     const combined = clampScore(
       Math.min(
-        Math.round(hScore * timeFactor) + hourlyVerticalAdjustment.delta,
+        Math.round(hScore * timeFactor) + hourlyVerticalAdjustment.delta + visibility.delta,
         cloudSeaCoverageCeiling(h.cloudLow)
       )
     );
@@ -391,7 +457,7 @@ export function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
           }`,
         },
         {
-          name: '垂直层结 / 云底 / 阵风',
+          name: '垂直层结 / 阵风',
           value:
             hourlyVerticalAdjustment.delta === 0
               ? '未修正'
@@ -402,13 +468,37 @@ export function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
               : hourlyVerticalAdjustment.delta < -2
                 ? 'unfavorable'
                 : 'moderate',
-          hint: [...hourlyVerticalAdjustment.notes, moisture.note].join('；'),
+          hint: [...hourlyVerticalAdjustment.notes, moisture.note, visibility.note].join('；'),
         },
       ] as EvaluationFactor[],
     };
   });
 
   const dailyScore = peakScore(rawHourlyScores);
+  const observation = cloudSeaObservationWindow(
+    rawHourlyScores.map((hour) => ({
+      hourNum: Number(hour.displayHour.slice(0, 2)),
+      score: hour.score,
+    }))
+  );
+  const windowMinutes = observation.minutes;
+  let windowStatus: 'optimal' | 'good' | 'moderate' = 'good';
+  let windowLabel = '适中稳定';
+  if (windowMinutes >= 150) {
+    windowStatus = 'optimal';
+    windowLabel = '绵延充裕';
+  } else if (windowMinutes >= 100) {
+    windowStatus = 'good';
+    windowLabel = '适中稳定';
+  } else if (windowMinutes >= 60) {
+    windowStatus = 'moderate';
+    windowLabel = '窗口偏短·消散快';
+  } else {
+    windowStatus = 'moderate';
+    windowLabel = '稍纵即散';
+  }
+  const bestTimeStart = observation.start;
+  const bestTimeEnd = observation.end;
 
   // Determine level
   let level: PhenomenonPrediction['level'] = 'poor';
@@ -473,9 +563,9 @@ export function evaluateCloudSea(ctx: EvaluationContext): PhenomenonPrediction {
     level,
     levelLabel,
     levelBadgeColor,
-    bestTimeWindow: `${bestTimeStart} - ${bestTimeEnd} (清晨日出逆温窗口)`,
+    bestTimeWindow: `${bestTimeStart} - ${bestTimeEnd} (分时高分时段)`,
     bestTimeShort: `${bestTimeStart} - ${bestTimeEnd}`,
-    countdownHint: `最佳观测时段通常为清晨日出逆温层稳定期，持续约 ${windowMinutes} 分钟`,
+    countdownHint: `高分集中在 ${bestTimeStart} - ${bestTimeEnd}，约 ${windowMinutes} 分钟`,
     summary,
     factors,
     photographerTips: '推荐机位选在海拔 1000m 以上开阔观景台或东向山崖；搭配广角镜头拍壮阔气势，长焦镜头压缩山峰孤岛特写；加装 ND 减光镜可拍摄如丝绢般流动的云瀑慢门。',

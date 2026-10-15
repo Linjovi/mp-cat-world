@@ -87,9 +87,9 @@ function gauss(x: number, mu: number, sigma: number): number {
   return Math.exp(-((x - mu) ** 2) / (2 * sigma * sigma));
 }
 
-/** 过厚中云轻扣光路，满云仍保留七成五。不要把高云甜点核打穿。 */
+/** 过厚中云轻扣光路，从 65% 开始平滑渐进，满云保留七成六。不要把高云甜点核打穿。 */
 function midLid(mid: number): number {
-  return ramp(mid, 80, 100, 1, 0.75);
+  return ramp(mid, 65, 100, 1, 0.76);
 }
 
 function overcastCrush(low: number, mid: number): number {
@@ -269,7 +269,11 @@ function cloudFactors(sample: SunsetSample, aerosol: ScoreAdjustment, lightBlock
           ? '高云覆盖适中，适合承接落日红光'
           : high < 12
             ? '高云很少，晚霞缺少幕布'
-            : '高云偏厚，颜色容易发闷',
+            : high < 18
+              ? '高云偏薄偏少，晚霞范围相对有限'
+              : high > 80
+                ? '高云过厚密闭，颜色容易发闷'
+                : '高云偏厚，晚霞层次偏深沉',
     },
     {
       name: '中云纹理',
@@ -280,7 +284,9 @@ function cloudFactors(sample: SunsetSample, aerosol: ScoreAdjustment, lightBlock
           ? '中云适量，能给晚霞增加层次'
           : mid > 80
             ? '中云过厚，霞光不容易透出来'
-            : '中云偏少，纹理有限',
+            : mid > 57
+              ? '中云偏多，对高空云幕略有遮挡'
+              : '中云偏少，纹理有限',
     },
     {
       name: '低云遮挡',
@@ -290,7 +296,9 @@ function cloudFactors(sample: SunsetSample, aerosol: ScoreAdjustment, lightBlock
         ? '低云或中云过厚，照向云幕的光基本过不去'
         : low <= 15
           ? '低云少，落日光线更容易照到中高云'
-          : '低云偏厚，容易挡住照向云幕的光',
+          : low <= 40
+            ? '有少量低云，局部可能遮挡视线'
+            : '低云偏厚，容易挡住照向云幕的光',
     },
     {
       name: '空气干湿',
@@ -445,6 +453,36 @@ export function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction
           ? '低云阻碍小，火烧云演变更从容'
           : '低云偏厚，适合出片的时间更短',
     },
+    {
+      name: '落日云幕结构',
+      value: `高${Math.round(sunsetSample.cloudHigh)}% · 中${Math.round(sunsetSample.cloudMid)}% · 低${Math.round(sunsetSample.cloudLow)}%`,
+      status: sunsetOptical.lightBlocked ? 'unfavorable' : sunsetSample.cloudHigh >= 18 ? 'optimal' : 'good',
+      hint: sunsetOptical.lightBlocked
+        ? '低云或厚中云阻断入射光路，较难形成壮观晚霞'
+        : sunsetSample.cloudHigh >= 18 && sunsetSample.cloudHigh <= 66
+          ? '高云适量且低云较少，落日斜射光能有效照亮云幕'
+          : sunsetSample.cloudHigh < 12
+            ? '高云较少，缺少大面积火烧云幕布，以金色地平夕照为主'
+            : '高云偏厚密闭，霞光容易显暗发沉',
+    },
+    {
+      name: '大气通透与霞色散射',
+      value:
+        sunsetSample.aerosolOpticalDepth !== undefined
+          ? `能见度 ${Math.round(sunsetSample.visibilityKm)}km · AOD ${sunsetSample.aerosolOpticalDepth.toFixed(2)}`
+          : `能见度 ${Math.round(sunsetSample.visibilityKm)}km · ${sunsetSample.pm2_5 !== undefined ? `PM2.5 ${Math.round(sunsetSample.pm2_5)}` : '空气质量暂缺'}`,
+      status:
+        sunsetOptical.aerosol.delta < 0 || sunsetSample.visibilityKm < 10
+          ? 'unfavorable'
+          : sunsetOptical.aerosol.delta > 0
+            ? 'optimal'
+            : 'good',
+      hint: sunsetOptical.aerosol.notes.length
+        ? sunsetOptical.aerosol.notes.join('；')
+        : sunsetSample.visibilityKm >= 15
+          ? '能见度良好，霞光通透纯净'
+          : '能见度一般，霞色略带灰蒙',
+    },
   ];
 
   const hourlyScores = rawSunsetHourly.map(({ hour, score, timingLabel, factors: hourFactors }) => ({
@@ -470,7 +508,7 @@ export function evaluateSunsetGlow(ctx: EvaluationContext): PhenomenonPrediction
     summary,
     factors,
     photographerTips:
-      '晚霞呈现三段阶梯式演变：① 日落前金黄刺眼；② 日落后 5-15 分钟红黄云彩爆裂（火烧云最佳窗口）；③ 日落后 20-35 分钟天空转入冷暖对冲紫粉蓝调。请使用三脚架并适度减弱曝光突出色彩饱和。',
+      '晚霞呈现三段阶梯式演变：① 日落前金黄刺眼；② 日落后 5-15 分钟红黄云彩爆裂（火烧云最佳窗口）；③ 日落后 20-35 分钟天空转入冷暖对冲紫粉蓝调。晚霞强烈依赖西向地平线光路，若西方百公里外有远距离厚云可能削弱实际晚霞。请使用三脚架并适度减弱曝光突出色彩饱和。',
     equipmentAdvice: '偏振镜(CPL)、软渐变滤镜(Soft GND0.9)、广角变焦镜头、稳固脚架',
     hourlyScores,
   };

@@ -39,9 +39,14 @@ test('徒步标签不含已在柱状图里的降水和湿度', () => {
 test('云海用三层云量柱，标签不再重复低云中高云', () => {
   const dive = decorateSkyHour('cloud_sea', hour);
   assert.equal(dive.layers.length, 3);
+  assert.equal(dive.layers[0].title, '高云（8 km 以上）');
+  assert.equal(dive.layers[1].title, '中云（3–8 km）');
+  assert.equal(dive.layers[2].title, '低云（3 km 以下）');
   assert.equal(dive.layers[2].pct, 72);
-  assert.equal(dive.metrics.some((m) => /低云|中高云|高空云/.test(m.name)), false);
+  assert.equal(dive.metrics.some((m) => /低云|中高云|高空云|云底/.test(m.name)), false);
   assert.equal(dive.metrics.some((m) => m.name.includes('湿度')), true);
+  assert.equal(dive.metrics.some((m) => m.name === '能见度' && m.value === '16km'), true);
+  assert.equal(dive.metrics.some((m) => m.name.includes('降水概率')), true);
   assert.equal(dive.metrics.some((m) => m.name.includes('垂直层结')), false);
 });
 

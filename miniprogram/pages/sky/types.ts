@@ -32,12 +32,6 @@ export interface HourlyWeatherData {
   // Optional fields: the API omits whole arrays and may return null per hour
   wind_gusts_10m?: (number | null)[]; // km/h
   pressure_msl?: (number | null)[]; // hPa
-  /**
-   * Convective cloud base height in meters, null when there is no convective cloud.
-   * Height datum is not documented by the API; consumers treat it as above mean sea
-   * level (AMSL) without conversion and must state that assumption.
-   */
-  convective_cloud_base?: (number | null)[];
   temperature_925hPa?: (number | null)[]; // °C
   temperature_850hPa?: (number | null)[]; // °C
   // 700hPa (~3000m) keeps the profile usable for summits above the 925/850 levels
@@ -45,9 +39,6 @@ export interface HourlyWeatherData {
   relative_humidity_925hPa?: (number | null)[]; // %
   relative_humidity_850hPa?: (number | null)[]; // %
   relative_humidity_700hPa?: (number | null)[]; // %
-  cloud_cover_925hPa?: (number | null)[]; // %
-  cloud_cover_850hPa?: (number | null)[]; // %
-  cloud_cover_700hPa?: (number | null)[]; // %
 }
 
 export interface DailyWeatherData {

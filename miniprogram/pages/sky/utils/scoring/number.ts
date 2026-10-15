@@ -24,9 +24,3 @@ export function clampScore(value: number): number {
 export function peakScore(scores: { score: number }[]): number {
   return scores.reduce((max, item) => Math.max(max, item.score), 0);
 }
-
-/** Open-Meteo 无对流云时返回 -500 等哨兵，非正高度一律视为缺失，避免污染平均。 */
-export function usableHeightMeters(value: number | null | undefined): number | undefined {
-  const height = finiteValue(value);
-  return height !== undefined && height > 0 ? height : undefined;
-}

@@ -47,8 +47,8 @@
 
       <scroll-view class="chips" scroll-x enhanced show-scrollbar="{{false}}">
         <view class="chips-inner">
-          <navigator class="chip {{selectedCategory === 'all' ? 'on' : ''}}" url="{{allCategoryHref}}" open-type="redirect" hover-class="none">全部 ({{totalCount || 372}})</navigator>
-          <navigator wx:for="{{categories}}" wx:key="id" class="chip {{selectedCategory === item.id ? 'on' : ''}}" url="{{item.href}}" open-type="redirect" hover-class="none">{{item.name}} ({{item.count}})</navigator>
+          <view class="chip {{selectedCategory === 'all' ? 'on' : ''}}" data-id="all" bindtap="onCategory">全部 ({{totalCount || 372}})</view>
+          <view wx:for="{{categories}}" wx:key="id" class="chip {{selectedCategory === item.id ? 'on' : ''}}" data-id="{{item.id}}" bindtap="onCategory">{{item.name}} ({{item.count}})</view>
         </view>
       </scroll-view>
 
@@ -96,20 +96,12 @@
           </view>
         </navigator>
         <view wx:if="{{totalPages > 1}}" class="pager">
-          <navigator wx:if="{{page > 1}}" class="pager-btn" url="{{prevPageHref}}" open-type="redirect" hover-class="none">
-            <view class="ic ic-chevron-left"></view>
-            <text>上一页</text>
-          </navigator>
-          <view wx:else class="pager-btn disabled">
+          <view class="pager-btn {{page <= 1 ? 'disabled' : ''}}" bindtap="onPrevPage">
             <view class="ic ic-chevron-left"></view>
             <text>上一页</text>
           </view>
           <text class="muted">{{page}} / {{totalPages}}</text>
-          <navigator wx:if="{{page < totalPages}}" class="pager-btn" url="{{nextPageHref}}" open-type="redirect" hover-class="none">
-            <text>下一页</text>
-            <view class="ic ic-chevron-right"></view>
-          </navigator>
-          <view wx:else class="pager-btn disabled">
+          <view class="pager-btn {{page >= totalPages ? 'disabled' : ''}}" bindtap="onNextPage">
             <text>下一页</text>
             <view class="ic ic-chevron-right"></view>
           </view>
@@ -209,7 +201,7 @@
       </view>
       <scroll-view class="chips" scroll-x enhanced show-scrollbar="{{false}}">
         <view class="chips-inner">
-          <navigator wx:for="{{tipGroups}}" wx:key="id" class="chip {{tipGroup === item.id ? 'dark-on' : ''}}" url="{{item.href}}" open-type="redirect" hover-class="none">{{item.label}}</navigator>
+          <view wx:for="{{tipGroups}}" wx:key="id" class="chip {{tipGroup === item.id ? 'dark-on' : ''}}" data-id="{{item.id}}" bindtap="onTipGroup">{{item.label}}</view>
         </view>
       </scroll-view>
       <view wx:if="{{tipsLoading}}" class="loading"><text class="muted">正在整理技巧笔记...</text></view>
@@ -325,21 +317,21 @@
   </view>
 
   <view class="tabbar">
-    <navigator class="tab-item {{tab === 'recipes' ? 'on' : ''}}" url="{{tabHrefs.recipes}}" open-type="redirect" hover-class="none">
+    <view class="tab-item {{tab === 'recipes' ? 'on' : ''}}" data-tab="recipes" bindtap="onTab">
       <view class="ic tab-icon tab-icon-recipes"></view>
       <text>菜谱</text>
-    </navigator>
-    <navigator class="tab-item {{tab === 'recommend' ? 'on' : ''}}" url="{{tabHrefs.recommend}}" open-type="redirect" hover-class="none">
+    </view>
+    <view class="tab-item {{tab === 'recommend' ? 'on' : ''}}" data-tab="recommend" bindtap="onTab">
       <view class="ic tab-icon tab-icon-recommend"></view>
       <text>智能配菜</text>
-    </navigator>
-    <navigator class="tab-item {{tab === 'tips' ? 'on' : ''}}" url="{{tabHrefs.tips}}" open-type="redirect" hover-class="none">
+    </view>
+    <view class="tab-item {{tab === 'tips' ? 'on' : ''}}" data-tab="tips" bindtap="onTab">
       <view class="ic tab-icon tab-icon-tips"></view>
       <text>烹饪技巧</text>
-    </navigator>
-    <navigator class="tab-item {{tab === 'kitchen' ? 'on' : ''}}" url="{{tabHrefs.kitchen}}" open-type="redirect" hover-class="none">
+    </view>
+    <view class="tab-item {{tab === 'kitchen' ? 'on' : ''}}" data-tab="kitchen" bindtap="onTab">
       <view class="ic tab-icon tab-icon-kitchen"></view>
       <text>我的厨房</text>
-    </navigator>
+    </view>
   </view>
 </view>

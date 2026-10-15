@@ -18,7 +18,6 @@ const WEATHER_HOURLY_FIELDS = [
   'cloud_cover_low',
   'cloud_cover_mid',
   'cloud_cover_high',
-  'convective_cloud_base',
   'visibility',
   'wind_speed_10m',
   'wind_direction_10m',
@@ -29,9 +28,6 @@ const WEATHER_HOURLY_FIELDS = [
   'relative_humidity_925hPa',
   'relative_humidity_850hPa',
   'relative_humidity_700hPa',
-  'cloud_cover_925hPa',
-  'cloud_cover_850hPa',
-  'cloud_cover_700hPa',
 ].join(',');
 
 const WEATHER_DAILY_FIELDS = [

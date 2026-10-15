@@ -186,3 +186,27 @@ test('气溶胶、能见度、湿度、降水、中云差 1 个单位时分数�
   const mid81 = scoreOf({ cloudHigh: 42, cloudMid: 81, cloudLow: 10 });
   assert.ok(Math.abs(mid79 - mid81) <= 6, `中云 79/81 跳了 ${mid79} → ${mid81}`);
 });
+
+test('日综合因子包含观赏窗口、云幕结构与通透散射，且提示文案准确', () => {
+  const result = evaluateSunsetGlow(
+    day({ cloudHigh: 42, cloudMid: 70, cloudLow: 5, aod: 0.18, visibilityKm: 25 })
+  );
+
+  assert.equal(result.factors.length, 3);
+  assert.ok(result.factors.some((f) => f.name === '受光观赏窗口时长'));
+  assert.ok(result.factors.some((f) => f.name === '落日云幕结构'));
+  assert.ok(result.factors.some((f) => f.name === '大气通透与霞色散射'));
+
+  const cloudStructure = result.factors.find((f) => f.name === '落日云幕结构');
+  assert.equal(cloudStructure?.value, '高42% · 中70% · 低5%');
+
+  // 验证逐时因子中文案分支准确性
+  const sunsetHour = result.hourlyScores[17];
+  const midFactor = sunsetHour.factors.find((f) => f.name === '中云纹理');
+  assert.ok(midFactor?.hint.includes('偏多') || midFactor?.hint.includes('遮挡'), `70% 中云不应判定为偏少: ${midFactor?.hint}`);
+
+  const thinHighResult = evaluateSunsetGlow(day({ cloudHigh: 15, cloudMid: 20, cloudLow: 0 }));
+  const thinHighFactor = thinHighResult.hourlyScores[17].factors.find((f) => f.name === '高云幕布');
+  assert.ok(!thinHighFactor?.hint.includes('偏厚'), `15% 高云不应判定为偏厚: ${thinHighFactor?.hint}`);
+});
+

@@ -27,7 +27,7 @@ export async function resolve(specifier, context, nextResolve) {
 }`;
 register(`data:text/javascript,${encodeURIComponent(loaderSource)}`, import.meta.url);
 
-const { alignAirQualityToWeatherHours, cloudSeaCoverageCeiling, evaluateForecast, usableHeightMeters } =
+const { alignAirQualityToWeatherHours, cloudSeaCoverageCeiling, evaluateForecast } =
   await import('./weatherModel.ts');
 
 interface WeatherOverrides {
@@ -39,7 +39,6 @@ interface WeatherOverrides {
   temperature850hPa?: number;
   temperature700hPa?: number;
   include700hPa?: boolean;
-  convectiveCloudBase?: number | number[];
   cloudCoverLow?: number;
 }
 
@@ -48,9 +47,6 @@ function makeWeather(overrides: WeatherOverrides = {}): WeatherApiResponse {
   const hourCount = overrides.hourCount ?? 24;
   const time = Array.from({ length: hourCount }, (_, hour) => `${date}T${String(hour).padStart(2, '0')}:00`);
   const fill = (value: number): number[] => time.map(() => value);
-  const cloudBase = Array.isArray(overrides.convectiveCloudBase)
-    ? overrides.convectiveCloudBase
-    : fill(overrides.convectiveCloudBase ?? 700);
   const weather: WeatherApiResponse = {
     latitude: 30.25,
     longitude: 120.17,
@@ -78,9 +74,6 @@ function makeWeather(overrides: WeatherOverrides = {}): WeatherApiResponse {
       temperature_850hPa: fill(overrides.temperature850hPa ?? 12),
       relative_humidity_925hPa: fill(85),
       relative_humidity_850hPa: fill(55),
-      cloud_cover_925hPa: fill(75),
-      cloud_cover_850hPa: fill(20),
-      convective_cloud_base: cloudBase,
     },
     daily: {
       time: [date],
@@ -95,7 +88,6 @@ function makeWeather(overrides: WeatherOverrides = {}): WeatherApiResponse {
   if (overrides.include700hPa) {
     weather.hourly.temperature_700hPa = fill(overrides.temperature700hPa ?? 4);
     weather.hourly.relative_humidity_700hPa = fill(60);
-    weather.hourly.cloud_cover_700hPa = fill(40);
   }
   return weather;
 }
@@ -300,38 +292,6 @@ test('高海拔 1600m：700hPa 真逆温使云海评分高于无 700 字段', ()
     .flatMap((hour) => hour.factors)
     .find((factor) => factor.name.includes('垂直层结'))?.hint;
   assert.ok(with700Hint?.includes('700hPa'), with700Hint);
-});
-
-test('对流云底哨兵 -500 不得污染平均或产生云底加分文案', () => {
-  assert.equal(usableHeightMeters(-500), undefined);
-  assert.equal(usableHeightMeters(0), undefined);
-  assert.equal(usableHeightMeters(800), 800);
-
-  const allSentinel = evaluateForecast(
-    makeWeather({ elevation: 1500, convectiveCloudBase: -500 })
-  )[0].predictions.cloud_sea;
-  const verticalHints = allSentinel.hourlyScores
-    .flatMap((hour) => hour.factors)
-    .filter((factor) => factor.name.includes('垂直层结'))
-    .map((factor) => factor.hint)
-    .join('\n');
-  assert.equal(/可俯瞰云海|云底约/.test(verticalHints), false, verticalHints);
-
-  // 清晨 05-08 中三小时哨兵、一小时真实高云底：污染平均会变成假低云底并加分
-  const mixedBases = Array.from({ length: 24 }, () => 2000);
-  mixedBases[5] = -500;
-  mixedBases[6] = -500;
-  mixedBases[7] = -500;
-  mixedBases[8] = 2000;
-  const mixed = evaluateForecast(
-    makeWeather({ elevation: 1500, convectiveCloudBase: mixedBases })
-  )[0].predictions.cloud_sea;
-  const mixedHints = mixed.hourlyScores
-    .flatMap((hour) => hour.factors)
-    .filter((factor) => factor.name.includes('垂直层结'))
-    .map((factor) => factor.hint)
-    .join('\n');
-  assert.equal(/可俯瞰云海/.test(mixedHints), false, mixedHints);
 });
 
 test('除晚霞外当天评分等于分时最高分，逐时成因随小时变化', () => {

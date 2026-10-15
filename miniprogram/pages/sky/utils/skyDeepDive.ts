@@ -147,6 +147,16 @@ function metricsForTab(tab: PhenomenonType, hour: SkyHourSource): SkyMetric[] {
       { name: '降水概率', value: `${hour.precipProb}%` },
     ];
   }
+  if (tab === 'cloud_sea') {
+    const metrics: SkyMetric[] = [
+      { name: '气温', value: `${hour.temp}°C` },
+      { name: '湿度', value: `${hour.humidity}%` },
+      { name: '风速', value: `${hour.windSpeed}km/h` },
+      { name: '能见度', value: `${hour.visibilityKm}km` },
+      { name: '降水概率', value: `${hour.precipProb}%` },
+    ];
+    return metrics;
+  }
   return [
     { name: '气温', value: `${hour.temp}°C` },
     { name: '湿度', value: `${hour.humidity}%` },
@@ -183,9 +193,9 @@ function layersForTab(tab: PhenomenonType, hour: SkyHourSource): SkyLayer[] {
     ];
   }
   return [
-    { title: '高空云 (>6000m)', pct: hour.cloudHigh, kind: 'high-cloud' },
-    { title: '中空云 (2000-6000m)', pct: hour.cloudMid, kind: 'mid-cloud' },
-    { title: '低空云 (0-2000m·云海层)', pct: hour.cloudLow, kind: 'low-cloud' },
+    { title: '高云（8 km 以上）', pct: hour.cloudHigh, kind: 'high-cloud' },
+    { title: '中云（3–8 km）', pct: hour.cloudMid, kind: 'mid-cloud' },
+    { title: '低云（3 km 以下）', pct: hour.cloudLow, kind: 'low-cloud' },
   ];
 }
 

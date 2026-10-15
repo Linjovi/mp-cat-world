@@ -31,16 +31,12 @@ test('天气 URL：包含评分所需的新增小时字段', () => {
   const required = [
     'wind_gusts_10m',
     'pressure_msl',
-    'convective_cloud_base',
     'temperature_925hPa',
     'temperature_850hPa',
     'temperature_700hPa',
     'relative_humidity_925hPa',
     'relative_humidity_850hPa',
     'relative_humidity_700hPa',
-    'cloud_cover_925hPa',
-    'cloud_cover_850hPa',
-    'cloud_cover_700hPa',
   ];
   for (const field of required) {
     assert.ok(hourly.includes(field), `缺少小时字段 ${field}: ${hourly.join(',')}`);
